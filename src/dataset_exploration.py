@@ -5,10 +5,16 @@ from sklearn.neighbors import KernelDensity
 from scipy.spatial.distance import pdist
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).parent.parent
+
 class DatasetExplorer:
     """Explore dataset characteristics for region-aware approximation"""
     
-    def __init__(self, data_dir='./data', results_dir='./results'):
+    def __init__(self, data_dir=None, results_dir=None):
+        if data_dir is None:
+            data_dir = PROJECT_ROOT / 'data'
+        if results_dir is None:
+            results_dir = PROJECT_ROOT / 'results'
         self.data_dir = Path(data_dir)
         self.results_dir = Path(results_dir)
         self.results_dir.mkdir(exist_ok=True)
@@ -256,7 +262,6 @@ class DatasetExplorer:
         
         plt.tight_layout()
         plt.savefig(self.results_dir / f'{dataset_name}_analysis.png', dpi=150, bbox_inches='tight')
-        print(f"[OK] Visualization saved to {self.results_dir / f'{dataset_name}_analysis.png'}")
         
         return fig
     

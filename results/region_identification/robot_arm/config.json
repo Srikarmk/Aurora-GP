@@ -1,0 +1,9 @@
+{
+  "max_gp_samples": 5000,
+  "n_neighbors": 50,
+  "uncertainty_weight": 0.5,
+  "density_weight": 0.5,
+  "high_threshold": 0.7,
+  "low_threshold": 0.3,
+  "random_state": 42
+}

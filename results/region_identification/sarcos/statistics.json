@@ -1,0 +1,18 @@
+{
+  "n_total": 10000,
+  "n_high": 3000,
+  "n_medium": 4000,
+  "n_low": 3000,
+  "pct_high": 30.0,
+  "pct_medium": 40.0,
+  "pct_low": 30.0,
+  "importance_mean": 0.2680464113992389,
+  "importance_std": 0.16610619068533375,
+  "importance_min": 0.008460979595308744,
+  "importance_max": 0.9950553320137638,
+  "uncertainty_mean": 6.945369606830136,
+  "uncertainty_std": 1.9349665418396147,
+  "density_mean": 0.2608538709840264,
+  "density_std": 0.13966227412641605,
+  "fitting_time": 47.9751763343811
+}

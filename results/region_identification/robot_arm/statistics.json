@@ -1,0 +1,18 @@
+{
+  "n_total": 8192,
+  "n_high": 2458,
+  "n_medium": 3276,
+  "n_low": 2458,
+  "pct_high": 30.0048828125,
+  "pct_medium": 39.990234375,
+  "pct_low": 30.0048828125,
+  "importance_mean": 0.3827018761362907,
+  "importance_std": 0.16490623151928135,
+  "importance_min": 0.011267379753293871,
+  "importance_max": 0.9999999994773014,
+  "uncertainty_mean": 0.12909926754651524,
+  "uncertainty_std": 0.019637534715377065,
+  "density_mean": 0.3360736926233102,
+  "density_std": 0.15075478537613396,
+  "fitting_time": 20.735101222991943
+}
