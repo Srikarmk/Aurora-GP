@@ -111,57 +111,57 @@ class RegionIdentifier:
         return self
     
     def predict_regions(self, X_test, adaptive_thresholds=False):
-            """
-            Predict region labels for test points
+        """
+        Predict region labels for test points
+        
+        Args:
+            X_test: Test features (n_test, n_features)
+            adaptive_thresholds: If True, compute thresholds based on test data 
+                                 distribution (recommended). If False, use training
+                                 thresholds (can cause imbalanced regions).
             
-            Args:
-                X_test: Test features (n_test, n_features)
-                adaptive_thresholds: If True, compute thresholds based on test data 
-                                    distribution (recommended). If False, use training
-                                    thresholds (can cause imbalanced regions).
-                
-            Returns:
-                regions: Array of region labels (0=low, 1=medium, 2=high)
-                importance_scores: Importance scores for test points
-            """
-            X_test_scaled = self.scaler.transform(X_test)
-            
-            # Get uncertainty for test points
-            uncertainties = self.gp.get_uncertainty_map(X_test)
-            uncertainty_normalized = (uncertainties - self.uncertainty_map.min()) / \
-                                    (self.uncertainty_map.max() - self.uncertainty_map.min() + 1e-10)
-            
-            # Get density scores for test points
-            nbrs = NearestNeighbors(n_neighbors=self.n_neighbors)
-            nbrs.fit(self.X_train_scaled)
-            distances, _ = nbrs.kneighbors(X_test_scaled)
-            avg_distances = distances.mean(axis=1)
-            
-            density_scores = (avg_distances - self.density_map.min()) / \
-                            (self.density_map.max() - self.density_map.min() + 1e-10)
-            
-            # Compute importance scores
-            test_importance = (
-                self.uncertainty_weight * uncertainty_normalized +
-                self.density_weight * density_scores
-            )
-            
-            # Determine thresholds
-            if adaptive_thresholds:
-                # Compute thresholds based on TEST data distribution
-                high_thresh = np.percentile(test_importance, self.high_threshold * 100)
-                low_thresh = np.percentile(test_importance, self.low_threshold * 100)
-            else:
-                # Use original training thresholds
-                high_thresh = self.high_threshold_value
-                low_thresh = self.low_threshold_value
-            
-            # Assign regions
-            regions = np.ones(len(X_test), dtype=int)  # Default to medium (1)
-            regions[test_importance >= high_thresh] = 2  # High
-            regions[test_importance <= low_thresh] = 0   # Low
-            
-            return regions, test_importance
+        Returns:
+            regions: Array of region labels (0=low, 1=medium, 2=high)
+            importance_scores: Importance scores for test points
+        """
+        X_test_scaled = self.scaler.transform(X_test)
+        
+        # Get uncertainty for test points
+        uncertainties = self.gp.get_uncertainty_map(X_test)
+        uncertainty_normalized = (uncertainties - self.uncertainty_map.min()) / \
+                                (self.uncertainty_map.max() - self.uncertainty_map.min() + 1e-10)
+        
+        # Get density scores for test points
+        nbrs = NearestNeighbors(n_neighbors=self.n_neighbors)
+        nbrs.fit(self.X_train_scaled)
+        distances, _ = nbrs.kneighbors(X_test_scaled)
+        avg_distances = distances.mean(axis=1)
+        
+        density_scores = (avg_distances - self.density_map.min()) / \
+                        (self.density_map.max() - self.density_map.min() + 1e-10)
+        
+        # Compute importance scores
+        test_importance = (
+            self.uncertainty_weight * uncertainty_normalized +
+            self.density_weight * density_scores
+        )
+        
+        # Determine thresholds
+        if adaptive_thresholds:
+            # Compute thresholds based on TEST data distribution
+            high_thresh = np.percentile(test_importance, self.high_threshold * 100)
+            low_thresh = np.percentile(test_importance, self.low_threshold * 100)
+        else:
+            # Use original training thresholds
+            high_thresh = self.high_threshold_value
+            low_thresh = self.low_threshold_value
+        
+        # Assign regions
+        regions = np.ones(len(X_test), dtype=int)  # Default to medium (1)
+        regions[test_importance >= high_thresh] = 2  # High
+        regions[test_importance <= low_thresh] = 0   # Low
+        
+        return regions, test_importance
     
     def get_region_statistics(self):
         """Get statistics about identified regions"""

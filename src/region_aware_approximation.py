@@ -1,6 +1,7 @@
 """
 AURORA - Stage 2: Region-Aware Approximation
 Allocate different approximation quality based on region importance
+
 """
 
 import numpy as np
@@ -16,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from region_identification import RegionIdentifier
 from approximations import RandomFourierFeatures, NystromApproximation
+from gp_baseline import GaussianProcessBaseline
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -37,7 +39,6 @@ def load_baseline_hyperparameters(dataset_name):
         print(f"  [WARNING] No baseline for {dataset_name}, using defaults")
         return {'lengthscale': 1.0, 'sigma_noise': 0.1}
     
-    # Get lengthscale from Nyström results (or RFF if Nyström not available)
     dataset_baseline = baseline_results[dataset_name]
     
     if 'nystrom' in dataset_baseline and 'lengthscale' in dataset_baseline['nystrom']:
@@ -55,8 +56,8 @@ class RegionAwareApproximation:
     Region-aware kernel approximation that allocates different 
     approximation quality to different importance regions.
     
-    Strategy:
-        - High importance (2): Nyström with more landmarks
+    Strategy (as per proposal):
+        - High importance (2): Exact GP (best quality)
         - Medium importance (1): Standard Nyström
         - Low importance (0): Sparse RFF (fewer components)
     """
@@ -64,7 +65,7 @@ class RegionAwareApproximation:
     def __init__(self,
                  low_n_components=200,
                  medium_n_landmarks=500,
-                 high_n_landmarks=1000,
+                 high_gp_max_train=2000,
                  lengthscale=1.0,
                  sigma_noise=0.1,
                  random_state=42):
@@ -72,20 +73,19 @@ class RegionAwareApproximation:
         Args:
             low_n_components: RFF components for low importance regions
             medium_n_landmarks: Nyström landmarks for medium importance
-            high_n_landmarks: Nyström landmarks for high importance
-            lengthscale: Kernel lengthscale
+            high_gp_max_train: Max training points for exact GP (high importance)
+            lengthscale: Kernel lengthscale (for RFF and Nyström)
             sigma_noise: Observation noise
             random_state: Random seed
         """
         self.low_n_components = low_n_components
         self.medium_n_landmarks = medium_n_landmarks
-        self.high_n_landmarks = high_n_landmarks
+        self.high_gp_max_train = high_gp_max_train
         self.lengthscale = lengthscale
         self.sigma_noise = sigma_noise
         self.random_state = random_state
         
         # Models for each region
-        # Original allocation: more compute for high importance regions
         self.models = {
             0: RandomFourierFeatures(  # LOW importance → Sparse RFF
                 n_components=low_n_components,
@@ -99,11 +99,10 @@ class RegionAwareApproximation:
                 sigma_noise=sigma_noise,
                 random_state=random_state
             ),
-            2: NystromApproximation(  # HIGH importance → More Nyström
-                n_landmarks=high_n_landmarks,
-                lengthscale=lengthscale,
-                sigma_noise=sigma_noise,
-                random_state=random_state
+            2: GaussianProcessBaseline(  # HIGH importance → Exact GP
+                max_train_size=high_gp_max_train,
+                random_state=random_state,
+                use_gpu=True
             )
         }
         
@@ -147,13 +146,13 @@ class RegionAwareApproximation:
         print("  Training medium importance model (Nyström)...")
         self.models[1].fit(X_train, y_train)
         
-        print("  Training high importance model (Nyström+)...")
-        self.models[2].fit(X_train, y_train)
+        print("  Training high importance model (Exact GP)...")
+        self.models[2].fit(X_train, y_train, n_iter=30)
         
         # Get peak memory usage
         current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        self.peak_memory_mb = peak / (1024 * 1024)  # Convert to MB
+        self.peak_memory_mb = peak / (1024 * 1024)
         
         self.training_time = time.time() - start_time
         
@@ -172,7 +171,7 @@ class RegionAwareApproximation:
             y_std: Standard deviations (if return_std=True)
             regions: Region assignments for each test point
         """
-        # Get region assignments (use training thresholds, not adaptive)
+        # Get region assignments
         regions, importance_scores = self.region_identifier.predict_regions(X_test, adaptive_thresholds=False)
         
         n_test = len(X_test)
@@ -277,7 +276,7 @@ class RegionAwareApproximation:
         return {
             'low_n_components': self.low_n_components,
             'medium_n_landmarks': self.medium_n_landmarks,
-            'high_n_landmarks': self.high_n_landmarks,
+            'high_gp_max_train': self.high_gp_max_train,
             'lengthscale': self.lengthscale,
             'sigma_noise': self.sigma_noise,
             'random_state': self.random_state
@@ -342,7 +341,7 @@ def run_region_aware_benchmark(data_dir=None, results_dir=None):
             model = RegionAwareApproximation(
                 low_n_components=200,
                 medium_n_landmarks=500,
-                high_n_landmarks=1000,
+                high_gp_max_train=2000,
                 lengthscale=hyperparams['lengthscale'],
                 sigma_noise=hyperparams['sigma_noise'],
                 random_state=42
