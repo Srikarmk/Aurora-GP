@@ -1,0 +1,21 @@
+Dataset,Method,RMSE,NLL,ECE,Training_Time,Peak_Memory_MB
+concrete,Exact GP,5.6235,3.4419,0.2947,1.92,
+concrete,RFF,11.4902,24.5413,0.4107,0.70,
+concrete,Nystrom,11.5734,25.0154,0.4092,0.50,
+concrete,Region-Aware,11.4098,23.9333,0.4092,0.71,38.80974102020264
+protein,Exact GP,4.4754,2.9373,0.1145,31.17,
+protein,RFF,6.1346,50.7598,0.4745,1.56,
+protein,Nystrom,6.1346,50.7614,0.4745,1.27,
+protein,Region-Aware,6.0711,49.4951,0.4789,1.93,194.65456104278564
+robot_arm,Exact GP,0.0786,-0.7068,0.2771,23.09,
+robot_arm,RFF,0.1064,4.8273,0.3129,0.88,
+robot_arm,Nystrom,0.0990,3.3004,0.3020,0.72,
+robot_arm,Region-Aware,0.0884,2.7324,0.2891,1.86,161.15656757354736
+sarcos,Exact GP,3.0271,2.9845,0.3238,20.45,
+sarcos,RFF,4.1767,3.7043,0.1092,1.71,
+sarcos,Nystrom,4.1904,3.7220,0.1108,1.36,
+sarcos,Region-Aware,4.6200,4.2606,0.1400,1.85,196.42689990997314
+synthetic_heteroscedastic,Exact GP,0.1424,0.8198,0.4399,14.92,
+synthetic_heteroscedastic,RFF,0.4999,17.4711,0.4047,0.69,
+synthetic_heteroscedastic,Nystrom,0.4981,17.3774,0.3973,0.55,
+synthetic_heteroscedastic,Region-Aware,0.5890,25.1257,0.4310,3.86,147.24803733825684
