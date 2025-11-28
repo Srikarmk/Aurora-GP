@@ -20,6 +20,36 @@ from approximations import RandomFourierFeatures, NystromApproximation
 PROJECT_ROOT = Path(__file__).parent.parent
 
 
+def load_baseline_hyperparameters(dataset_name):
+    """
+    Load tuned hyperparameters from baseline approximation results.
+    """
+    baseline_path = PROJECT_ROOT / 'results' / 'approximations' / 'summary.json'
+    
+    if not baseline_path.exists():
+        print(f"  [WARNING] Baseline results not found, using default hyperparameters")
+        return {'lengthscale': 1.0, 'sigma_noise': 0.1}
+    
+    with open(baseline_path, 'r') as f:
+        baseline_results = json.load(f)
+    
+    if dataset_name not in baseline_results:
+        print(f"  [WARNING] No baseline for {dataset_name}, using defaults")
+        return {'lengthscale': 1.0, 'sigma_noise': 0.1}
+    
+    # Get lengthscale from Nyström results (or RFF if Nyström not available)
+    dataset_baseline = baseline_results[dataset_name]
+    
+    if 'nystrom' in dataset_baseline and 'lengthscale' in dataset_baseline['nystrom']:
+        lengthscale = dataset_baseline['nystrom']['lengthscale']
+    elif 'rff' in dataset_baseline and 'lengthscale' in dataset_baseline['rff']:
+        lengthscale = dataset_baseline['rff']['lengthscale']
+    else:
+        lengthscale = 1.0
+    
+    return {'lengthscale': lengthscale, 'sigma_noise': 0.1}
+
+
 class RegionAwareApproximation:
     """
     Region-aware kernel approximation that allocates different 
@@ -252,36 +282,6 @@ class RegionAwareApproximation:
             'sigma_noise': self.sigma_noise,
             'random_state': self.random_state
         }
-
-
-def load_baseline_hyperparameters(dataset_name):
-    """
-    Load tuned hyperparameters from baseline approximation results.
-    """
-    baseline_path = PROJECT_ROOT / 'results' / 'approximations' / 'summary.json'
-    
-    if not baseline_path.exists():
-        print(f"  [WARNING] Baseline results not found, using default hyperparameters")
-        return {'lengthscale': 1.0, 'sigma_noise': 0.1}
-    
-    with open(baseline_path, 'r') as f:
-        baseline_results = json.load(f)
-    
-    if dataset_name not in baseline_results:
-        print(f"  [WARNING] No baseline for {dataset_name}, using defaults")
-        return {'lengthscale': 1.0, 'sigma_noise': 0.1}
-    
-    # Get lengthscale from Nyström results (or RFF if Nyström not available)
-    dataset_baseline = baseline_results[dataset_name]
-    
-    if 'nystrom' in dataset_baseline and 'lengthscale' in dataset_baseline['nystrom']:
-        lengthscale = dataset_baseline['nystrom']['lengthscale']
-    elif 'rff' in dataset_baseline and 'lengthscale' in dataset_baseline['rff']:
-        lengthscale = dataset_baseline['rff']['lengthscale']
-    else:
-        lengthscale = 1.0
-    
-    return {'lengthscale': lengthscale, 'sigma_noise': 0.1}
 
 
 def run_region_aware_benchmark(data_dir=None, results_dir=None):
