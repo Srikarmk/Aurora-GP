@@ -1,0 +1,62 @@
+{
+  "concrete": [
+    {
+      "config": "Extreme Ratio",
+      "ece": 0.41067961165048544,
+      "improvement_pct": -0.3558718861209854
+    },
+    {
+      "config": "Exact GP High",
+      "ece": 0.22766990291262135,
+      "improvement_pct": 44.365361803084234
+    }
+  ],
+  "protein": [
+    {
+      "config": "Extreme Ratio",
+      "ece": 0.4766000000000001,
+      "improvement_pct": -0.4350959655307669
+    },
+    {
+      "config": "Exact GP High",
+      "ece": 0.31489999999999996,
+      "improvement_pct": 33.64034469251862
+    }
+  ],
+  "robot_arm": [
+    {
+      "config": "Extreme Ratio",
+      "ece": 0.3499694935936547,
+      "improvement_pct": -15.878787878787886
+    },
+    {
+      "config": "Exact GP High",
+      "ece": 0.17004270896888346,
+      "improvement_pct": 43.6969696969697
+    }
+  ],
+  "sarcos": [
+    {
+      "config": "Extreme Ratio",
+      "ece": 0.16615000000000002,
+      "improvement_pct": -49.89952525811211
+    },
+    {
+      "config": "Exact GP High",
+      "ece": 0.06018333333333332,
+      "improvement_pct": 45.70296060717799
+    }
+  ],
+  "synthetic_heteroscedastic": [
+    {
+      "config": "Extreme Ratio",
+      "ece": 0.41019999999999995,
+      "improvement_pct": -3.2469166876415727
+    },
+    {
+      "config": "Exact GP High",
+      "ece": 0.25960000000000005,
+      "improvement_pct": 34.6589478983136
+    }
+  ]
+}

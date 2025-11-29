@@ -1,0 +1,9 @@
+{
+  "low_n_components": 100,
+  "medium_n_landmarks": 300,
+  "high_n_landmarks": 800,
+  "lengthscale": 3.5449678404693357,
+  "sigma_noise": 0.1,
+  "strategy": "train_on_all_data_v2",
+  "random_state": 42
+}

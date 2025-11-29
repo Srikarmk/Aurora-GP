@@ -1,0 +1,37 @@
+[
+  {
+    "config": "Config 1: Extreme Ratio",
+    "rmse": 0.12403494607420847,
+    "ece": 0.3494203782794387,
+    "improvement_pct": -15.69696969696971,
+    "training_time": 17.713321447372437
+  },
+  {
+    "config": "Config 2: Conservative",
+    "rmse": 0.11512515798624659,
+    "ece": 0.33666870042708974,
+    "improvement_pct": -11.474747474747488,
+    "training_time": 12.041242361068726
+  },
+  {
+    "config": "Config 3: Exact GP for High",
+    "rmse": 0.10976550836059921,
+    "ece": 0.17004270896888346,
+    "improvement_pct": 43.6969696969697,
+    "training_time": 19.493589639663696
+  },
+  {
+    "config": "Config 4: Very Cheap Low",
+    "rmse": 0.12238493185062273,
+    "ece": 0.3349603416717511,
+    "improvement_pct": -10.909090909090914,
+    "training_time": 11.561080932617188
+  },
+  {
+    "config": "Config 5: Extreme High",
+    "rmse": 0.12115812626214452,
+    "ece": 0.33361805979255643,
+    "improvement_pct": -10.46464646464646,
+    "training_time": 13.467643737792969
+  }
+]

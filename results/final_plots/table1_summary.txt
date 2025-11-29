@@ -1,0 +1,22 @@
+================================================================================
+AURORA: COMPLETE RESULTS SUMMARY
+================================================================================
+
+                  Dataset          Method    RMSE     NLL             ECE Time (s)
+                 concrete        Exact GP  5.6143  3.4421          0.3005     1.78
+                 concrete Uniform Nyström 11.5734 25.0154          0.4092     0.50
+                 concrete          AURORA 10.0936 16.9520 0.2262 (+44.7%)     6.23
+                  protein        Exact GP  4.4721  2.9361          0.1155    27.47
+                  protein Uniform Nyström  6.1346 50.7614          0.4745     1.27
+                  protein          AURORA  5.5308 29.1931 0.3125 (+34.2%)   100.68
+                robot_arm        Exact GP  0.0787 -0.7050          0.2813    14.39
+                robot_arm Uniform Nyström  0.0990  3.3004          0.3020     0.72
+                robot_arm          AURORA  0.1101  4.1516 0.1697 (+43.8%)    23.13
+                   sarcos        Exact GP  3.0315  2.9911          0.3243    19.38
+                   sarcos Uniform Nyström  4.1904  3.7220          0.1108     1.36
+                   sarcos          AURORA  4.3821  3.6269 0.0586 (+47.1%)    22.94
+synthetic_heteroscedastic        Exact GP  0.1417  0.8189          0.4411    20.27
+synthetic_heteroscedastic Uniform Nyström  0.4981 17.3774          0.3973     0.55
+synthetic_heteroscedastic          AURORA  0.4931 16.8529 0.2600 (+34.6%)    15.87
+
+================================================================================
