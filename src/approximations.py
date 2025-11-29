@@ -2,10 +2,15 @@ import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
 import time
 from scipy.stats import norm
+from pathlib import Path
+import json
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+PROJECT_ROOT = Path(__file__).parent.parent
 
 
 class RandomFourierFeatures:
@@ -288,3 +293,173 @@ class NystromApproximation:
             observed_conf = within_interval.mean()
             ece += np.abs(observed_conf - conf) / n_bins
         return ece
+
+
+def load_baseline_hyperparameters(dataset_name):
+    """Load hyperparameters from baseline GP results if available"""
+    baseline_path = PROJECT_ROOT / 'results' / 'baseline_gp' / 'summary.json'
+    
+    if not baseline_path.exists():
+        return {'lengthscale': 1.0, 'sigma_noise': 0.1}
+    
+    try:
+        with open(baseline_path, 'r') as f:
+            baseline_results = json.load(f)
+        
+        if dataset_name in baseline_results:
+            metrics = baseline_results[dataset_name]
+            # Try to extract hyperparameters if available
+            # Default values if not found
+            lengthscale = metrics.get('lengthscale', 1.0)
+            sigma_noise = metrics.get('sigma_noise', 0.1)
+            return {'lengthscale': lengthscale, 'sigma_noise': sigma_noise}
+    except Exception:
+        pass
+    
+    return {'lengthscale': 1.0, 'sigma_noise': 0.1}
+
+
+def run_approximation_experiments(data_dir=None, results_dir=None):
+    """Run RFF and Nyström approximations on all datasets"""
+    if data_dir is None:
+        data_dir = PROJECT_ROOT / 'data'
+    if results_dir is None:
+        results_dir = PROJECT_ROOT / 'results' / 'approximations'
+    
+    data_dir = Path(data_dir)
+    results_dir = Path(results_dir)
+    results_dir.mkdir(parents=True, exist_ok=True)
+    
+    print("\n" + "="*70)
+    print("APPROXIMATION METHODS BENCHMARK")
+    print("="*70)
+    print("\nMethods:")
+    print("  - Random Fourier Features (RFF)")
+    print("  - Nyström Approximation")
+    print("="*70)
+    
+    datasets = list(data_dir.glob('*.npz'))
+    
+    if not datasets:
+        print(f"\n[ERROR] No datasets found in {data_dir}")
+        return None
+    
+    all_results = {}
+    
+    for dataset_file in datasets:
+        dataset_name = dataset_file.stem
+        
+        print(f"\n{'='*70}")
+        print(f"DATASET: {dataset_name.upper()}")
+        print(f"{'='*70}")
+        
+        try:
+            # Load data
+            data = np.load(dataset_file, allow_pickle=True)
+            X = data['X']
+            y = data['y']
+            
+            # Subsample large datasets
+            if len(X) > 10000:
+                print(f"  Subsampling from {len(X)} to 10000")
+                idx = np.random.RandomState(42).choice(len(X), 10000, replace=False)
+                X = X[idx]
+                y = y[idx]
+            
+            # Train/test split
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=42
+            )
+            
+            print(f"  Train: {len(X_train)}, Test: {len(X_test)}")
+            
+            # Load hyperparameters
+            hyperparams = load_baseline_hyperparameters(dataset_name)
+            print(f"  Lengthscale: {hyperparams['lengthscale']:.4f}")
+            print(f"  Sigma noise: {hyperparams['sigma_noise']:.4f}")
+            
+            dataset_results = {}
+            
+            # Run Random Fourier Features
+            print("\n  Training Random Fourier Features...")
+            rff = RandomFourierFeatures(
+                n_components=1000,
+                lengthscale=hyperparams['lengthscale'],
+                sigma_noise=hyperparams['sigma_noise'],
+                random_state=42
+            )
+            rff.fit(X_train, y_train)
+            rff_metrics = rff.evaluate(X_test, y_test, verbose=True)
+            rff_metrics['lengthscale'] = hyperparams['lengthscale']
+            rff_metrics['sigma_noise'] = hyperparams['sigma_noise']
+            dataset_results['rff'] = rff_metrics
+            
+            # Run Nyström Approximation
+            print("\n  Training Nyström Approximation...")
+            nystrom = NystromApproximation(
+                n_landmarks=500,
+                lengthscale=hyperparams['lengthscale'],
+                sigma_noise=hyperparams['sigma_noise'],
+                random_state=42
+            )
+            nystrom.fit(X_train, y_train)
+            nystrom_metrics = nystrom.evaluate(X_test, y_test, verbose=True)
+            nystrom_metrics['lengthscale'] = hyperparams['lengthscale']
+            nystrom_metrics['sigma_noise'] = hyperparams['sigma_noise']
+            dataset_results['nystrom'] = nystrom_metrics
+            
+            # Save results
+            all_results[dataset_name] = dataset_results
+            
+            # Save per-dataset results
+            dataset_dir = results_dir / dataset_name
+            dataset_dir.mkdir(parents=True, exist_ok=True)
+            
+            rff_dir = dataset_dir / 'rff'
+            rff_dir.mkdir(parents=True, exist_ok=True)
+            with open(rff_dir / 'metrics.json', 'w') as f:
+                json.dump(rff_metrics, f, indent=2)
+            
+            nystrom_dir = dataset_dir / 'nystrom'
+            nystrom_dir.mkdir(parents=True, exist_ok=True)
+            with open(nystrom_dir / 'metrics.json', 'w') as f:
+                json.dump(nystrom_metrics, f, indent=2)
+            
+            print(f"\n✓ {dataset_name} complete")
+            
+        except Exception as e:
+            print(f"\n[ERROR] {dataset_name}: {e}")
+            import traceback
+            traceback.print_exc()
+            all_results[dataset_name] = {'error': str(e)}
+    
+    # Save summary
+    with open(results_dir / 'summary.json', 'w') as f:
+        json.dump(all_results, f, indent=2)
+    
+    # Print summary
+    print("\n" + "="*70)
+    print("APPROXIMATION METHODS SUMMARY")
+    print("="*70)
+    print(f"{'Dataset':<20} {'Method':<15} {'RMSE':<10} {'NLL':<10} {'ECE':<10} {'Time(s)':<10}")
+    print("-"*70)
+    
+    for name, results in all_results.items():
+        if 'error' not in results:
+            if 'rff' in results:
+                rff = results['rff']
+                print(f"{name:<20} {'RFF':<15} {rff['rmse']:<10.4f} {rff['nll']:<10.4f} "
+                      f"{rff['ece']:<10.4f} {rff['training_time']:<10.2f}")
+            if 'nystrom' in results:
+                nys = results['nystrom']
+                print(f"{name:<20} {'Nyström':<15} {nys['rmse']:<10.4f} {nys['nll']:<10.4f} "
+                      f"{nys['ece']:<10.4f} {nys['training_time']:<10.2f}")
+    
+    print("="*70)
+    print(f"\n✓ All results saved to {results_dir}")
+    
+    return all_results
+
+
+if __name__ == "__main__":
+    results = run_approximation_experiments()
