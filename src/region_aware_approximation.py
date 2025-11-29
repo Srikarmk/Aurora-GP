@@ -1,7 +1,6 @@
 """
 AURORA - Stage 2: Region-Aware Approximation
 Allocate different approximation quality based on region importance
-
 """
 
 import numpy as np
@@ -172,7 +171,7 @@ class RegionAwareApproximation:
             regions: Region assignments for each test point
         """
         # Get region assignments
-        regions, importance_scores = self.region_identifier.predict_regions(X_test, adaptive_thresholds=False)
+        regions, importance_scores = self.region_identifier.predict_regions(X_test, adaptive_thresholds=True)
         
         n_test = len(X_test)
         y_pred = np.zeros(n_test)

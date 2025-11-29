@@ -110,7 +110,7 @@ class RegionIdentifier:
         
         return self
     
-    def predict_regions(self, X_test, adaptive_thresholds=False):
+    def predict_regions(self, X_test, adaptive_thresholds=True):
         """
         Predict region labels for test points
         
