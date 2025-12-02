@@ -89,16 +89,10 @@ class RegionAwareApproximation:
         
     def fit(self, X_train, y_train, region_identifier=None, n_gp_iter=30):
         """Train region-aware approximation"""
-        print("\n" + "="*60)
-        print("AURORA V2: REGION-AWARE APPROXIMATION")
-        print("Strategy: Train all models on all data")
-        print("="*60)
-        
         start_time = time.time()
         tracemalloc.start()
         
         # Step 1: Region identification
-        print("\nSTEP 1: Region Identification")
         if region_identifier is not None:
             self.region_identifier = region_identifier
             self.region_id_time = region_identifier.fitting_time
@@ -107,27 +101,7 @@ class RegionAwareApproximation:
             self.region_identifier.fit(X_train, y_train, n_gp_iter=n_gp_iter)
             self.region_id_time = self.region_identifier.fitting_time
         
-        # Get training region stats (for reporting)
-        importance_train = self.region_identifier.importance_scores
-        high_thresh = self.region_identifier.high_threshold_value
-        low_thresh = self.region_identifier.low_threshold_value
-        
-        regions_train = np.ones(len(X_train), dtype=int)
-        regions_train[importance_train >= high_thresh] = 2
-        regions_train[importance_train <= low_thresh] = 0
-        
-        n_low = np.sum(regions_train == 0)
-        n_med = np.sum(regions_train == 1)
-        n_high = np.sum(regions_train == 2)
-        
-        print(f"  Training regions: Low={n_low} ({n_low/len(X_train)*100:.1f}%), "
-              f"Med={n_med} ({n_med/len(X_train)*100:.1f}%), "
-              f"High={n_high} ({n_high/len(X_train)*100:.1f}%)")
-        
         # Step 2: Train all models on ALL data with different complexities
-        print("\nSTEP 2: Training Models (All on Full Data)")
-        
-        print(f"  LOW complexity (RFF, D={self.low_n_components}) on {len(X_train)} points...")
         self.models[0] = RandomFourierFeatures(
             n_components=self.low_n_components,
             lengthscale=self.lengthscale,
@@ -136,7 +110,6 @@ class RegionAwareApproximation:
         )
         self.models[0].fit(X_train, y_train)
         
-        print(f"  MEDIUM complexity (Nyström, m={self.medium_n_landmarks}) on {len(X_train)} points...")
         self.models[1] = NystromApproximation(
             n_landmarks=self.medium_n_landmarks,
             lengthscale=self.lengthscale,
@@ -145,7 +118,6 @@ class RegionAwareApproximation:
         )
         self.models[1].fit(X_train, y_train)
         
-        print(f"  HIGH complexity (Nyström, m={self.high_n_landmarks}) on {len(X_train)} points...")
         self.models[2] = NystromApproximation(
             n_landmarks=self.high_n_landmarks,
             lengthscale=self.lengthscale,
@@ -159,8 +131,6 @@ class RegionAwareApproximation:
         self.peak_memory_mb = peak / (1024 * 1024)
         
         self.training_time = time.time() - start_time
-        
-        print(f"\n✓ Training complete in {self.training_time:.2f}s")
         
         return self
     
@@ -402,5 +372,3 @@ def run_region_aware_benchmark(data_dir=None, results_dir=None):
 if __name__ == "__main__":
     results = run_region_aware_benchmark()
     
-    print("\n✓ AURORA V2 benchmark complete!")
-    print("\nNext: Compare with baselines to verify improvement")

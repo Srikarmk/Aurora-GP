@@ -1,37 +1,37 @@
 [
   {
     "config": "Config 1: Extreme Ratio",
-    "rmse": 11.827724814987794,
+    "rmse": 11.827630534542546,
     "ece": 0.41067961165048544,
     "improvement_pct": -0.3558718861209854,
-    "training_time": 6.628692150115967
+    "training_time": 6.349866628646851
   },
   {
     "config": "Config 2: Conservative",
-    "rmse": 11.540176318361269,
-    "ece": 0.40533980582524276,
-    "improvement_pct": 0.9489916963226593,
-    "training_time": 3.099081516265869
+    "rmse": 11.538260997069262,
+    "ece": 0.40485436893203886,
+    "improvement_pct": 1.0676156583629968,
+    "training_time": 3.0810775756835938
   },
   {
     "config": "Config 3: Exact GP for High",
-    "rmse": 9.981672820350319,
-    "ece": 0.22766990291262135,
-    "improvement_pct": 44.365361803084234,
-    "training_time": 2.766888380050659
+    "rmse": 9.980256759765933,
+    "ece": 0.22572815533980584,
+    "improvement_pct": 44.83985765124556,
+    "training_time": 3.5610098838806152
   },
   {
     "config": "Config 4: Very Cheap Low",
-    "rmse": 11.576858859878426,
+    "rmse": 11.58027908242046,
     "ece": 0.40970873786407763,
     "improvement_pct": -0.11862396204031038,
-    "training_time": 1.4865036010742188
+    "training_time": 4.066775560379028
   },
   {
     "config": "Config 5: Extreme High",
-    "rmse": 11.541257750098357,
-    "ece": 0.40485436893203886,
-    "improvement_pct": 1.0676156583629968,
-    "training_time": 1.4161553382873535
+    "rmse": 11.540282406445737,
+    "ece": 0.40436893203883495,
+    "improvement_pct": 1.1862396204033343,
+    "training_time": 2.466083526611328
   }
 ]

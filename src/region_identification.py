@@ -108,12 +108,7 @@ class RegionIdentifier:
         n_low = np.sum(self.importance_scores <= self.low_threshold_value)
         n_medium = len(self.importance_scores) - n_high - n_low
         
-        print(f"  High:   {n_high} ({n_high/len(X_train)*100:.1f}%)")
-        print(f"  Medium: {n_medium} ({n_medium/len(X_train)*100:.1f}%)")
-        print(f"  Low:    {n_low} ({n_low/len(X_train)*100:.1f}%)")
-        
         self.fitting_time = time.time() - start_time
-        print(f"\n✓ Region identification complete in {self.fitting_time:.2f}s")
         
         return self
     

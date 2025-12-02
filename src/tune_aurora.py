@@ -445,5 +445,3 @@ if __name__ == "__main__":
         print("This will take ~10-15 minutes")
         tune_on_dataset(args.dataset, CONFIGS)
     
-    print("\n✓ Tuning complete!")
-    print("  Check results/tuning/ for detailed results")

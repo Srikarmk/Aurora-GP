@@ -435,50 +435,19 @@ def create_per_region_analysis(results, save_path):
 
 def create_all_plots():
     """Generate all publication plots"""
-    
-    print("\n" + "="*70)
-    print("GENERATING PUBLICATION-QUALITY PLOTS")
-    print("="*70)
-    
-    # Load results
-    print("\nLoading results...")
     results = load_all_results()
     
-    # Create output directory
     plots_dir = PROJECT_ROOT / 'results' / 'final_plots'
     plots_dir.mkdir(parents=True, exist_ok=True)
     
-    # Generate plots
-    print("\n1. Main comparison plot (ECE, RMSE, Time)...")
     create_main_comparison_plot(results, plots_dir / 'figure1_main_comparison.png')
-    
-    print("\n2. Improvement plot (AURORA vs Uniform)...")
     create_improvement_plot(results, plots_dir / 'figure2_improvement.png')
-    
-    print("\n3. Speed-accuracy tradeoff...")
     create_speedup_accuracy_tradeoff(results, plots_dir / 'figure3_tradeoff.png')
-    
-    print("\n4. Per-region analysis...")
     create_per_region_analysis(results, plots_dir / 'figure4_per_region.png')
-    
-    print("\n5. Summary table...")
     create_summary_table(results, plots_dir / 'table1_summary.txt')
     
-    print("\n" + "="*70)
-    print("✓ ALL PLOTS GENERATED")
-    print("="*70)
     print(f"\nPlots saved to: {plots_dir}")
-    print("\nGenerated files:")
-    print("  - figure1_main_comparison.png  (Main results)")
-    print("  - figure2_improvement.png      (% improvement)")
-    print("  - figure3_tradeoff.png         (Speed vs accuracy)")
-    print("  - figure4_per_region.png       (Per-region breakdown)")
-    print("  - table1_summary.txt/csv       (Complete table)")
-    print("\nReady for your paper/presentation!")
 
 
 if __name__ == "__main__":
     create_all_plots()
-    
-    print("\n✓ Plot generation complete!")
-    print("  Review plots in results/final_plots/")

@@ -129,14 +129,7 @@ class GaussianProcessBaseline:
             
             losses.append(loss.item())
             
-            if (i + 1) % 10 == 0:
-                print(f"  Iter {i+1}/{n_iter} - Loss: {loss.item():.4f}")
-        
         self.training_time = time.time() - start_time
-        
-        print(f"\n[OK] Training complete in {self.training_time:.2f}s")
-        print(f"  Final loss: {losses[-1]:.4f}")
-        print(f"  Lengthscale: {self.model.covar_module.base_kernel.lengthscale.item():.4f}")
         print(f"  Noise: {self.likelihood.noise.item():.4f}")
         
         return self
@@ -424,13 +417,8 @@ def run_baseline_experiments(data_dir=None, results_dir=None):
     with open(results_dir / 'summary.json', 'w') as f:
         json.dump(all_results, f, indent=2)
     
-    print(f"\n[OK] All results saved to {results_dir}")
-    
     return all_results
 
 
 if __name__ == "__main__":
-    # Run experiments
     results = run_baseline_experiments()
-    
-    print("\n[OK] Exact GP baseline experiments complete!")

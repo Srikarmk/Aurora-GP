@@ -6,13 +6,13 @@
   "pct_high": 30.0048828125,
   "pct_medium": 39.990234375,
   "pct_low": 30.0048828125,
-  "importance_mean": 0.3926649347979564,
-  "importance_std": 0.16616694049696423,
-  "importance_min": 0.009775261443016886,
-  "importance_max": 0.9999999994704272,
-  "uncertainty_mean": 0.12894989897805278,
-  "uncertainty_std": 0.019620461159784917,
+  "importance_mean": 0.37657957021035865,
+  "importance_std": 0.1643483323095626,
+  "importance_min": 0.001967011084074234,
+  "importance_max": 0.9999999994778207,
+  "uncertainty_mean": 0.1287277030240583,
+  "uncertainty_std": 0.019536258456951682,
   "density_mean": 0.3360736926233102,
   "density_std": 0.15075478537613396,
-  "fitting_time": 9.948451519012451
+  "fitting_time": 14.02150559425354
 }

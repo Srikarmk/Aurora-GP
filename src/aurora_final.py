@@ -111,21 +111,12 @@ class AURORA:
             n_gp_iter: GP optimization iterations for region identification
             verbose: Print training progress
         """
-        if verbose:
-            print("\n" + "="*60)
-            print("AURORA: TRAINING")
-            print("="*60)
-        
         start_time = time.time()
         tracemalloc.start()
         
         # =====================================================================
         # STAGE 1: Region Identification
         # =====================================================================
-        if verbose:
-            print("\nSTAGE 1: Identifying Importance Regions")
-            print("-"*60)
-        
         self.region_identifier = RegionIdentifier(
             max_gp_samples=self.max_gp_samples,
             random_state=self.random_state
@@ -133,26 +124,10 @@ class AURORA:
         self.region_identifier.fit(X_train, y_train, n_gp_iter=n_gp_iter)
         self.region_id_time = self.region_identifier.fitting_time
         
-        # Get region statistics (for reporting)
-        stats = self.region_identifier.get_region_statistics()
-        
-        if verbose:
-            print(f"\n  Region distribution:")
-            print(f"    High:   {stats['n_high']} ({stats['pct_high']:.1f}%)")
-            print(f"    Medium: {stats['n_medium']} ({stats['pct_medium']:.1f}%)")
-            print(f"    Low:    {stats['n_low']} ({stats['pct_low']:.1f}%)")
-        
         # =====================================================================
         # STAGE 2: Train Models with Different Qualities
         # =====================================================================
-        if verbose:
-            print("\nSTAGE 2: Training Adaptive Models")
-            print("-"*60)
-        
         # Model 0: LOW importance → Cheap RFF
-        if verbose:
-            print(f"  Training LOW model (RFF, D={self.low_n_components})...")
-        
         self.models[0] = RandomFourierFeatures(
             n_components=self.low_n_components,
             lengthscale=self.lengthscale,
@@ -162,9 +137,6 @@ class AURORA:
         self.models[0].fit(X_train, y_train)
         
         # Model 1: MEDIUM importance → Standard Nyström
-        if verbose:
-            print(f"  Training MEDIUM model (Nyström, m={self.medium_n_landmarks})...")
-        
         self.models[1] = NystromApproximation(
             n_landmarks=self.medium_n_landmarks,
             lengthscale=self.lengthscale,
@@ -174,9 +146,6 @@ class AURORA:
         self.models[1].fit(X_train, y_train)
         
         # Model 2: HIGH importance → Exact GP (Best Quality)
-        if verbose:
-            print(f"  Training HIGH model (Exact GP, max={self.max_gp_samples})...")
-        
         self.models[2] = GaussianProcessBaseline(
             max_train_size=self.max_gp_samples,
             random_state=self.random_state,
@@ -189,13 +158,6 @@ class AURORA:
         tracemalloc.stop()
         self.peak_memory_mb = peak / (1024 * 1024)
         self.training_time = time.time() - start_time
-        
-        if verbose:
-            print(f"\n✓ Training complete in {self.training_time:.2f}s")
-            print(f"  Stage 1 (Region ID): {self.region_id_time:.2f}s")
-            print(f"  Stage 2 (Models): {self.training_time - self.region_id_time:.2f}s")
-            print(f"  Peak memory: {self.peak_memory_mb:.2f} MB")
-            print("="*60)
         
         return self
     
@@ -425,7 +387,6 @@ def run_aurora_final(data_dir=None, results_dir=None):
             with open(dataset_dir / 'metrics.json', 'w') as f:
                 json.dump(metrics, f, indent=2)
             
-            print(f"\n✓ {dataset_name} complete")
             
         except Exception as e:
             print(f"\n[ERROR] {dataset_name}: {e}")
@@ -458,11 +419,3 @@ def run_aurora_final(data_dir=None, results_dir=None):
 if __name__ == "__main__":
     results = run_aurora_final()
     
-    print("\n" + "="*70)
-    print("✓ AURORA FINAL BENCHMARK COMPLETE!")
-    print("="*70)
-    print("\nNext steps:")
-    print("  1. Run: python create_final_plots.py")
-    print("  2. Review: results/aurora_final/")
-    print("  3. Compare with baselines")
-    print("\nYour AURORA implementation is ready for publication!")
