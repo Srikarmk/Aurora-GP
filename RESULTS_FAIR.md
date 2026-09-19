@@ -55,6 +55,29 @@ effect is consistent (5/5 seeds, −0.0152 +/- 0.0049). That is worth understand
 but it is one dataset out of five and it still does not beat simply using a uniform
 RFF (0.0106).
 
+### The decisive version: even an oracle router cannot win
+
+`src/mechanism.py` evaluates all four models on every test point, then selects the
+best model **per region using validation data** — an oracle that upper-bounds what
+any region-aware router could achieve with these models and this partition.
+
+| dataset | uniform best | oracle per-region | importance (AURORA) | random |
+|---|---|---|---|---|
+| concrete | **0.0318** | 0.0353 | 0.0378 | 0.0347 |
+| protein | **0.0101** | 0.0139 | 0.0174 | 0.0148 |
+| robot_arm | **0.0123** | 0.0160 | 0.0406 | 0.0231 |
+| sarcos | 0.0824 | **0.0757** | 0.0992 | 0.0873 |
+| synthetic | **0.0230** | 0.0235 | 0.0235 | 0.0238 |
+
+Mean (oracle − uniform best) = **+0.0009**: the best achievable router loses to
+using a single model everywhere on 4 of 5 datasets. The oracle's per-region choices
+are also different on every seed, which says the per-region differences it selects on
+are noise rather than structure.
+
+This is the strongest statement available: the failure is not that AURORA's
+importance criterion is poorly designed, but that there is no regional structure for
+*any* criterion to exploit on these benchmarks.
+
 ## 3. AURORA is never on the efficiency frontier
 
 | dataset | RMSE GP -> AURORA | NLL GP -> AURORA | train s GP -> AURORA |
@@ -71,32 +94,61 @@ uniform approximation, at a fraction of the cost.
 
 ---
 
-## 4. There is one real, publishable finding in here
+## 4. WITHDRAWN PENDING VERIFICATION — the calibration gap is probably an artifact
 
-It is not the one the repo claims. Once every method is given the same tuning budget,
-**the cheap sparse approximations are dramatically better calibrated than the exact
-GP**, consistently and with large effect sizes:
+**An earlier version of this section claimed that sparse approximations are
+dramatically better calibrated than the exact GP (an 11x ECE gap on protein). That
+claim is not safe and is retracted here pending `src/convergence_check.py`.**
 
-| dataset | Exact GP ECE | Uniform RFF | Uniform Nystrom |
+The exact-GP arm of the fair benchmark used the repo's `GaussianProcessBaseline`,
+which optimizes with Adam at lr=0.1 for 50 iterations (`gp_baseline.py:114`). The
+rank sweep in `src/mechanism.py` instead fits the same model class by L-BFGS on the
+exact marginal likelihood, with restarts. On identical data and identical splits the
+two disagree enormously:
+
+| dataset | exact GP ECE (repo baseline, 50 Adam iters) | exact GP ECE (L-BFGS on exact MLL) |
+|---|---|---|
+| robot_arm | 0.2701 | **0.0168** |
+| synthetic | 0.2738 | **0.0243** |
+| sarcos | 0.3178 | **0.0932** |
+| protein | 0.1170 | **0.0246** |
+| concrete | 0.0446 | **0.0378** |
+
+Same model, same data, same splits — only the optimizer differs. The most likely
+explanation is that the baseline is undertrained, in which case the "gap" was
+measuring an optimizer, not a property of sparse GPs.
+
+The proposed mechanism was also wrong. I suggested the low-rank approximation gap
+inflates predictive variance and offsets overconfidence. The rank sweep shows the
+opposite: z-dispersion (std of standardized residuals; 1.0 = calibrated) falls
+monotonically with rank and reaches ~1.0 at the exact GP, so low-rank models are
+*more* overconfident, not less.
+
+| dataset | z_disp at rank 25 | at rank 200 | exact |
 |---|---|---|---|
-| concrete | 0.0446 | **0.0329** | 0.0355 |
-| protein | 0.1170 | **0.0106** | 0.0118 |
-| robot_arm | 0.2701 | 0.0289 | **0.0238** |
-| sarcos | 0.3178 | **0.0854** | 0.0870 |
-| synthetic | 0.2738 | 0.0239 | **0.0232** |
+| robot_arm | 3.344 | 2.095 | 1.009 |
+| sarcos | 2.945 | 1.389 | 1.008 |
+| concrete | 1.968 | 1.162 | 1.078 |
+| protein | 1.279 | 1.115 | 0.992 |
 
-An 11x calibration gap on protein and a 3.7x gap on sarcos, in favour of the
-*approximation*. The exact GP is simultaneously the most accurate on RMSE almost
-everywhere — so this is a clean accuracy-vs-calibration separation, not a case of one
-model simply being better. The mechanism is plausible and testable: the low-rank
-approximation gap adds predictive variance that partially offsets the exact GP's
-well-known overconfidence under model misspecification.
+### What may still survive
 
-That is a legitimate paper: *"Sparse GP approximations are better calibrated than the
-exact GPs they approximate — and the effect is large enough to matter."* It needs
-more datasets, a proper mechanism section (decompose the variance inflation), and
-comparison against calibrated baselines. But unlike the current claim, it survives
-its own controls.
+At **matched** hyperparameters — one set fitted per (dataset, seed) and shared by
+every rank — ECE has an interior optimum in rank on 4 of 5 datasets:
+
+| dataset | best rank | ECE there | exact GP ECE | ratio |
+|---|---|---|---|---|
+| sarcos | 200 | 0.0276 | 0.0932 | 3.4x |
+| concrete | 200 | 0.0264 | 0.0378 | 1.4x |
+| protein | 800 | 0.0173 | 0.0246 | 1.4x |
+| synthetic | 50 | 0.0230 | 0.0243 | 1.1x |
+| robot_arm | exact | 0.0168 | 0.0168 | — |
+
+This comparison is internally valid in a way the earlier one was not: every row of
+the sweep shares one fitted hyperparameter set, so nothing here is an optimizer
+artifact. The honest version of the claim is narrow — *rank behaves as a calibration
+regularizer with an interior optimum on some datasets* — and the sarcos effect (3.4x)
+is the only large one. Do not write the strong version.
 
 ## 5. What cannot be salvaged
 

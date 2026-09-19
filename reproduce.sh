@@ -17,5 +17,8 @@ $PY mechanism.py
 echo "==> Aggregate -> results/mechanism/report.txt"
 $PY mechanism_report.py
 
+echo "==> Convergence check on the original exact-GP baseline"
+$PY convergence_check.py
+
 echo
 echo "Done. See RESULTS_FAIR.md, results/fair/report.txt, results/mechanism/report.txt"
