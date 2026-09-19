@@ -13,25 +13,26 @@ depends on my having reimplemented the baseline.
 
 ## 1. The headline gain was the bug
 
-Expected Calibration Error, uniform Nystrom vs AURORA:
+All numbers below use **exact GP inference** (see AUDIT.md Tier 1 finding 6); the
+approximation arms are unaffected by that issue, but the region partition is.
 
-| dataset | published Nystrom | published AURORA | published "gain" | **fair Nystrom** | **fair AURORA** | **fair gain** |
-|---|---|---|---|---|---|---|
-| concrete | 0.4092 | 0.2160 | +47.2% | **0.0355** | 0.0365 | **−2.8%** |
-| protein | 0.4745 | 0.3139 | +33.9% | **0.0118** | 0.0124 | **−5.1%** |
-| robot_arm | 0.3020 | 0.1689 | +44.1% | **0.0238** | 0.0257 | **−8.0%** |
-| sarcos | 0.1108 | 0.0596 | +46.2% | **0.0870** | 0.0924 | **−6.2%** |
-| synthetic | 0.3973 | 0.2609 | +34.3% | **0.0232** | 0.0233 | **−0.4%** |
-| **mean** | | | **+41.1%** | | | **−4.5%** |
+| dataset | published "gain" | fair Nystrom | fair AURORA | **fair gain** |
+|---|---|---|---|---|
+| concrete | +47.2% | 0.0355 | 0.0365 | **-2.7%** |
+| protein | +33.9% | 0.0118 | 0.0162 | **-36.8%** |
+| robot_arm | +44.1% | 0.0238 | 0.0244 | **-2.6%** |
+| sarcos | +46.2% | 0.0870 | 0.0929 | **-6.7%** |
+| synthetic_heteroscedastic | +34.3% | 0.0232 | 0.0233 | **-0.7%** |
 
-Fitting the lengthscale in the space the kernel actually operates in, and fitting
-the noise instead of hardcoding 0.1, improves the *uniform baseline* by 10-40x.
-On protein its ECE goes 0.4745 -> 0.0118 and its NLL 50.76 -> 2.94. The published
-"34-46% improvement" was the distance between AURORA and a broken model.
+Mean published gain **+41.1%**; mean corrected gain **-9.9%**.
 
-With the baseline repaired, AURORA is behind it on all five datasets. Paired
-per-seed difference: **+0.0018 ECE (AURORA worse)**; it wins 1-2 seeds out of 5 per
-dataset, i.e. noise.
+Fitting the lengthscale in the space the kernel actually operates in, and fitting the
+noise instead of hardcoding 0.1, improves the *uniform baseline* by 10-40x. On protein
+its ECE goes 0.4745 -> 0.0118 and its NLL 50.76 -> 2.94. The published "34-46%
+improvement" was the distance between AURORA and a broken model; on protein, one that
+was predicting a constant.
+
+With the baseline repaired, AURORA is behind it on all five datasets.
 
 ## 2. The importance signal mostly does not carry information
 
@@ -94,61 +95,41 @@ uniform approximation, at a fraction of the cost.
 
 ---
 
-## 4. WITHDRAWN PENDING VERIFICATION — the calibration gap is probably an artifact
+## 4. The calibration finding, after two retractions
 
-**An earlier version of this section claimed that sparse approximations are
-dramatically better calibrated than the exact GP (an 11x ECE gap on protein). That
-claim is not safe and is retracted here pending `src/convergence_check.py`.**
+This section previously claimed an 11x calibration gap favouring sparse
+approximations. That number was wrong: it compared against an exact GP whose
+*inference* was approximate (AUDIT.md Tier 1 finding 6). Two proposed explanations
+for the gap were also tested and rejected — an undertrained optimizer
+(`src/convergence_check.py`: 1000 Adam iterations do not close it) and
+hyperparameter fitting on a subsample (`n_fit` 500/1500/4800 changes nothing).
 
-The exact-GP arm of the fair benchmark used the repo's `GaussianProcessBaseline`,
-which optimizes with Adam at lr=0.1 for 50 iterations (`gp_baseline.py:114`). The
-rank sweep in `src/mechanism.py` instead fits the same model class by L-BFGS on the
-exact marginal likelihood, with restarts. On identical data and identical splits the
-two disagree enormously:
+Here is the measurement with exact inference throughout, 5 seeds:
 
-| dataset | exact GP ECE (repo baseline, 50 Adam iters) | exact GP ECE (L-BFGS on exact MLL) |
-|---|---|---|
-| robot_arm | 0.2701 | **0.0168** |
-| synthetic | 0.2738 | **0.0243** |
-| sarcos | 0.3178 | **0.0932** |
-| protein | 0.1170 | **0.0246** |
-| concrete | 0.0446 | **0.0378** |
-
-Same model, same data, same splits — only the optimizer differs. The most likely
-explanation is that the baseline is undertrained, in which case the "gap" was
-measuring an optimizer, not a property of sparse GPs.
-
-The proposed mechanism was also wrong. I suggested the low-rank approximation gap
-inflates predictive variance and offsets overconfidence. The rank sweep shows the
-opposite: z-dispersion (std of standardized residuals; 1.0 = calibrated) falls
-monotonically with rank and reaches ~1.0 at the exact GP, so low-rank models are
-*more* overconfident, not less.
-
-| dataset | z_disp at rank 25 | at rank 200 | exact |
+| dataset | Exact GP | best approximation | ratio |
 |---|---|---|---|
-| robot_arm | 3.344 | 2.095 | 1.009 |
-| sarcos | 2.945 | 1.389 | 1.008 |
-| concrete | 1.968 | 1.162 | 1.078 |
-| protein | 1.279 | 1.115 | 0.992 |
+| protein | 0.0369 | **0.0106** | 3.5x |
+| robot_arm | 0.0815 | **0.0238** | 3.4x |
+| synthetic | 0.0426 | **0.0232** | 1.8x |
+| concrete | 0.0446 | **0.0329** | 1.4x |
+| sarcos | **0.0315** | 0.0854 | **0.37x — exact GP wins** |
 
-### What may still survive
+The effect is real but modest and **not universal**: approximations win on 4 of 5
+datasets with ratios of 1.4-3.5x, and sarcos reverses cleanly in the other direction.
 
-At **matched** hyperparameters — one set fitted per (dataset, seed) and shared by
-every rank — ECE has an interior optimum in rank on 4 of 5 datasets:
+**This is not yet a paper.** Five datasets, one reversal, and no mechanism that has
+survived testing. The honest summary is "sparse approximations are sometimes better
+calibrated than the exact GP, for reasons we have not established." Publishing that
+requires many more datasets and a mechanism isolated by experiment rather than
+asserted — note that the two mechanisms proposed so far were both wrong, and that the
+rank sweep positively rules out variance inflation (z-dispersion falls monotonically
+with rank, reaching ~1.0 at the exact GP, so low-rank models are *more* overconfident).
 
-| dataset | best rank | ECE there | exact GP ECE | ratio |
-|---|---|---|---|---|
-| sarcos | 200 | 0.0276 | 0.0932 | 3.4x |
-| concrete | 200 | 0.0264 | 0.0378 | 1.4x |
-| protein | 800 | 0.0173 | 0.0246 | 1.4x |
-| synthetic | 50 | 0.0230 | 0.0243 | 1.1x |
-| robot_arm | exact | 0.0168 | 0.0168 | — |
-
-This comparison is internally valid in a way the earlier one was not: every row of
-the sweep shares one fitted hyperparameter set, so nothing here is an optimizer
-artifact. The honest version of the claim is narrow — *rank behaves as a calibration
-regularizer with an interior optimum on some datasets* — and the sarcos effect (3.4x)
-is the only large one. Do not write the strong version.
+What can be said confidently today is negative and methodological: **approximate GP
+inference silently corrupts calibration measurements**, by 3-9x here, and the
+threshold at which it engages (`max_cholesky_size=800`) is invisible in user code.
+That is a genuinely useful warning for anyone benchmarking GP uncertainty, and it is
+fully supported by the data in `results/`.
 
 ## 5. What cannot be salvaged
 

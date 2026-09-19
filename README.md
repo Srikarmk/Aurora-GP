@@ -41,24 +41,44 @@ observation noise fitted rather than hardcoded to 0.1:
 | dataset | published gain | corrected gain |
 |---|---|---|
 | concrete | +47.2% | −2.8% |
-| protein | +33.9% | −5.1% |
-| robot_arm | +44.1% | −8.0% |
-| sarcos | +46.2% | −6.2% |
+| protein | +33.9% | −37.3% |
+| robot_arm | +44.1% | −2.5% |
+| sarcos | +46.2% | −6.8% |
 | synthetic_heteroscedastic | +34.3% | −0.4% |
-| **mean** | **+41.1%** | **−4.5%** |
+| **mean** | **+41.1%** | **−9.9%** |
 
 Region-aware routing also fails a control the original never ran: with identical
 fitted models and the region labels randomly permuted (proportions preserved),
 importance-based routing is no better than random routing on 4 of 5 datasets.
 
-## What did survive
+## A second defect, found while checking the first
 
-Once every method is given the same tuning budget, the cheap sparse approximations
-are **substantially better calibrated than the exact GP they approximate** — an 11x
-ECE gap on protein, 3.7x on sarcos — while the exact GP remains more accurate on
-RMSE. That separation is robust across seeds and is the finding worth pursuing. See
-[`RESULTS_FAIR.md`](RESULTS_FAIR.md) §4 and the rank sweep in
-[`results/mechanism/report.txt`](results/mechanism/report.txt).
+The repo's "Exact GP" is not exact above n=800. `gp_baseline.py:157` uses
+`fast_pred_var()` (an approximation of the predictive variance) and GPyTorch falls
+back to iterative solves above `max_cholesky_size`, default 800. Both approximate
+exactly the quantity ECE measures. Same model, same splits, inference mode alone:
+
+| dataset | n_train | as written | exact inference |
+|---|---|---|---|
+| concrete | 618 | 0.0451 | 0.0451 |
+| synthetic | 3000 | 0.2708 | **0.0437** |
+| robot_arm | 4800 | 0.2681 | **0.0869** |
+| protein | 4800 | 0.1198 | **0.0381** |
+| sarcos | 4800 | 0.3141 | **0.0332** |
+
+Concrete is unaffected only because it sits below the threshold. This reaches the
+partition too — `RegionIdentifier` draws its uncertainty map through the same call,
+and region assignment agreement between approximate and exact inference is 70% on
+protein. Every affected experiment was re-run; see
+[`src/routing_recheck.py`](src/routing_recheck.py).
+
+## What survives
+
+Sparse approximations are better calibrated than the exact GP on 4 of 5 datasets
+(1.4–3.5x), but sarcos reverses and no mechanism has survived testing — see
+[`RESULTS_FAIR.md`](RESULTS_FAIR.md) §4, which documents two rejected explanations.
+The durable result is methodological: **approximate GP inference silently corrupts
+calibration measurements**, here by 3–9x, at a threshold invisible in user code.
 
 ---
 
