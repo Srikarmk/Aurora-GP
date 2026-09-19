@@ -116,6 +116,50 @@ approximates has no operating point. The cause is structural: AURORA trains *two
 exact GPs (one inside `RegionIdentifier`, one as model 2) plus RFF plus Nyström.
 `region_id_time` is ~50% of `training_time` in every run.
 
+### 6. The "Exact GP" baseline is not exact above n=800
+
+`gp_baseline.py:157` wraps prediction in `gpytorch.settings.fast_pred_var()`. That is
+LOVE (Lanczos Variance Estimates) — an **approximation of the predictive variance**.
+GPyTorch additionally falls back from Cholesky to iterative CG/Lanczos solves above
+`max_cholesky_size`, which defaults to **800**. Both approximate exactly the quantity
+ECE and NLL are computed from.
+
+Same fitted model, same data, same splits; only the inference mode changes:
+
+| dataset | n_train | ECE as written | ECE with exact inference |
+|---|---|---|---|
+| concrete | 618 | 0.0451 | 0.0451 |
+| synthetic | 3000 | 0.2708 | **0.0437** |
+| robot_arm | 4800 | 0.2681 | **0.0869** |
+| protein | 4800 | 0.1198 | **0.0381** |
+| sarcos | 4800 | 0.3141 | **0.0332** |
+
+Concrete is unchanged because 618 < 800 — it is the only dataset that was ever
+receiving exact inference. Every other Exact GP calibration number in the original
+`results/` is a measurement of an approximation, off by 3-9x.
+
+This propagates further than the baseline row. `RegionIdentifier.get_uncertainty_map`
+calls the same `predict()`, so the importance scores — and therefore the 30/40/30
+partition itself — are computed from approximated uncertainties whenever
+n_train > 800. Measured region agreement between approximate and exact inference:
+
+| dataset | n_train | region agreement | approx L/M/H | exact L/M/H |
+|---|---|---|---|---|
+| concrete | 618 | 100.0% | 28/36/36 | 28/36/36 |
+| synthetic | 3000 | 99.8% | 29/40/31 | 29/40/31 |
+| sarcos | 4800 | 88.8% | 29/41/30 | 27/36/37 |
+| robot_arm | 4800 | 79.3% | 29/38/34 | 22/32/47 |
+| protein | 4800 | **70.2%** | 26/40/34 | 20/27/53 |
+
+On protein nearly a third of test points are assigned to a different region. Any
+experiment that conditions on this partition — including the oracle-routing test in
+`results/mechanism/` — must be re-run with exact inference before it can be trusted.
+See `src/routing_recheck.py`.
+
+Fix: set `gpytorch.settings.max_cholesky_size` above n and drop `fast_pred_var()`
+when the predictive variance is the reported quantity. Cost is O(n^3) rather than
+iterative, which is the price of the word "exact".
+
 ---
 
 ## Tier 2 — Serious
@@ -175,9 +219,10 @@ exact GPs (one inside `RegionIdentifier`, one as model 2) plus RFF plus Nyström
 
 These parts are correct and worth keeping:
 
-- **Exact GP baseline** (`gp_baseline.py`) is a standard, correct GPyTorch
-  implementation: `ConstantMean`, `ScaleKernel(RBFKernel)`, exact marginal-likelihood
-  training, and correct rescaling of predictive variance by `scaler_y.scale_`.
+- **Exact GP baseline** (`gp_baseline.py`) is structurally standard — `ConstantMean`,
+  `ScaleKernel(RBFKernel)`, marginal-likelihood training, correct rescaling of
+  predictive variance by `scaler_y.scale_`. But see Tier 1 finding 6: its *inference*
+  is approximate above n=800, so its reported calibration is not the model's.
 - **Nyström posterior mean** (`approximations.py:193-195`) is the correct SoR/DTC form.
 - **RFF posterior** (`approximations.py:59-64`) is a correct Bayesian ridge solution
   including the posterior covariance, given a unit prior.

@@ -20,5 +20,11 @@ $PY mechanism_report.py
 echo "==> Convergence check on the original exact-GP baseline"
 $PY convergence_check.py
 
+echo "==> Routing headroom re-checked with exact GP inference"
+$PY routing_recheck.py
+
+echo "==> Fair benchmark re-run with exact GP inference"
+$PY fair_benchmark_exact.py
+
 echo
 echo "Done. See RESULTS_FAIR.md, results/fair/report.txt, results/mechanism/report.txt"

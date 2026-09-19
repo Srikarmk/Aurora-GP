@@ -370,9 +370,9 @@ def _per_region(y, p, s, reg):
     return d
 
 
-def main(seeds=(0, 1, 2, 3, 4)):
+def main(seeds=(0, 1, 2, 3, 4), out_name='fair'):
     data_dir = PROJECT_ROOT / 'data'
-    out_dir = PROJECT_ROOT / 'results' / 'fair'
+    out_dir = PROJECT_ROOT / 'results' / out_name
     out_dir.mkdir(parents=True, exist_ok=True)
 
     all_res = {}
