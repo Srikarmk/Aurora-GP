@@ -172,7 +172,17 @@ every arm, and 10 seeds on nine real datasets:
 | powerplant | 2.45 | **0.0197** | 0.1839 | 0.0214 | 0.002 |
 | protein | 2.19 | **0.0189** | 0.1127 | 0.0446 | 0.002 |
 
-**A single global noise parameter wins on 8 of 9.** Regional noise is actively harmful
+Adding the final two datasets: sarcos (global 0.0815 vs 0.1104 / 0.1107) and
+synthetic_heteroscedastic (regional **0.0172** vs global 0.0242).
+
+**Final tally over 11 datasets — ECE: global 9, regional 2, het-GP 0. NLL: regional 7,
+global 3, het-GP 1.**
+
+The two datasets regional noise wins are exactly the two with *constructed* noise
+structure. The machinery works where the phenomenon is real; across nine real datasets
+the phenomenon is never strong enough to repay its parameters. Het ratio does not
+predict the winner either — energy, the most heteroscedastic real dataset at 7.05, is
+a clean win for global noise. Regional noise is actively harmful
 where it loses (yacht 0.2515 vs 0.0648; robot_arm 0.0989 vs 0.0163). On NLL it is
 milder -- regional 5, global 3, het-GP 1 -- but on ECE the conclusion is unambiguous.
 

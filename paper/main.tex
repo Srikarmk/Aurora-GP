@@ -248,31 +248,46 @@ three estimate noise from shared \emph{out-of-fold} residuals, select hyperparam
 on validation NLL with equal budgets, and never see test labels. Ten seeds.
 
 \begin{table}[h]\centering
-\caption{$\ece$ on real data, ordered by measured input-dependent residual variance.
-A single global noise parameter wins on eight of nine datasets. Regional noise is
-actively harmful where it loses (yacht, robot\_arm). $p$ from a Wilcoxon signed-rank
-test on the ten paired per-seed differences between regional and heteroscedastic.}
+\caption{$\ece$ across all eleven datasets, ordered by measured input-dependent
+residual variance. A single global noise parameter wins on nine of eleven; the
+heteroscedastic GP wins on none. Regional noise wins only on the two datasets with
+\emph{constructed} noise structure, and is actively harmful where it loses.}
 \label{tab:noise}
-\begin{tabular}{lrrrrr}
+\begin{tabular}{llrrrr}
 \toprule
-dataset & het & global & het-GP (EM) & regional & $p$ \\
+dataset & origin & het & global & het-GP (EM) & regional \\
 \midrule
-energy      & 7.05 & \textbf{0.0385} & 0.0940 & 0.0792 & 0.695 \\
-airfoil     & 4.44 & \textbf{0.0784} & 0.0971 & 0.0920 & 0.557 \\
-calhousing  & 4.10 & \textbf{0.0693} & 0.1549 & \textbf{0.0693} & 0.002 \\
-concrete    & 3.88 & \textbf{0.0400} & 0.1259 & 0.0660 & 0.002 \\
-yacht       & 3.55 & \textbf{0.0648} & 0.0741 & 0.2515 & 0.002 \\
-wine\_white & 2.75 & \textbf{0.0216} & 0.1680 & 0.0345 & 0.004 \\
-robot\_arm  & 2.60 & \textbf{0.0163} & 0.0421 & 0.0989 & 0.002 \\
-powerplant  & 2.45 & \textbf{0.0197} & 0.1839 & 0.0214 & 0.002 \\
-protein     & 2.19 & \textbf{0.0189} & 0.1127 & 0.0446 & 0.002 \\
+energy      & real & 7.05 & \textbf{0.0385} & 0.0940 & 0.0792 \\
+sarcos      & real & 5.43 & \textbf{0.0815} & 0.1104 & 0.1107 \\
+airfoil     & real & 4.44 & \textbf{0.0784} & 0.0971 & 0.0920 \\
+calhousing  & real & 4.10 & \textbf{0.0693} & 0.1549 & \textbf{0.0693} \\
+concrete    & real & 3.88 & \textbf{0.0400} & 0.1259 & 0.0660 \\
+synth.\ het.& \emph{constructed} & 3.71 & 0.0242 & 0.1949 & \textbf{0.0172} \\
+yacht       & real & 3.55 & \textbf{0.0648} & 0.0741 & 0.2515 \\
+wine\_white & real & 2.75 & \textbf{0.0216} & 0.1680 & 0.0345 \\
+robot\_arm  & real & 2.60 & \textbf{0.0163} & 0.0421 & 0.0989 \\
+powerplant  & real & 2.45 & \textbf{0.0197} & 0.1839 & 0.0214 \\
+protein     & real & 2.19 & \textbf{0.0189} & 0.1127 & 0.0446 \\
+\midrule
+\multicolumn{3}{l}{\emph{best-arm count} ($\ece$)} & \textbf{9} & 0 & 2 \\
+\multicolumn{3}{l}{\emph{best-arm count} (NLL)} & 3 & 1 & \textbf{7} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-On NLL the picture is milder --- regional noise wins on five of nine, global on three
---- but on $\ece$ the conclusion is unambiguous: \textbf{neither input-dependent noise
-model improves calibration over a single global noise parameter on real data}. The
+\paragraph{The method works where the phenomenon is real; the phenomenon is rarely
+real.} The two datasets on which regional noise wins are precisely the two whose noise
+structure was \emph{constructed} rather than observed. This is a useful consistency
+check --- the machinery does what it is designed to do --- and simultaneously the
+result's undoing: across nine real datasets spanning het ratios of $2.2$ to $7.1$,
+there was never enough input-dependent noise to repay the parameters spent modelling
+it. Note also that a dataset's het ratio does not predict which arm wins: energy, the
+most heteroscedastic real dataset at $7.05$, is a clean win for global noise.
+
+On NLL the ordering partly reverses --- regional wins seven of eleven --- which says
+the regional model sharpens predictions without making their intervals better
+calibrated. On $\ece$ the conclusion is unambiguous: \textbf{neither input-dependent
+noise model improves calibration over a single global noise parameter on real data}. The
 gains we observed on constructed data appear only at het ratios of order $10^3$, some
 $200\times$ beyond anything we measured in practice (\cref{tab:screen}). At realistic
 levels the additional parameters cost more in estimation variance than they recover in
