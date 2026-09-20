@@ -69,6 +69,68 @@ made regional, fitted on training residuals within each region (no test labels):
 `varying_density` is the specificity control: density varies but noise does not, and
 the fix correctly does nothing there. The gain appears exactly where noise varies.
 
+
+## 5. Against an established heteroscedastic GP — partial, and one arm is not trustworthy
+
+A heteroscedastic GP is a known method. If it dominates regional noise, everything
+above reduces to "use a het-GP on het data". Two-stage het-GP (fit a second GP to log
+squared residuals), same splits, no test labels:
+
+**ECE**
+
+| dataset | global | het_gp | regional_true | regional_learn | partition recovery |
+|---|---|---|---|---|---|
+| hetero_extreme | 0.2374 | **0.0505** | 0.0937 | 0.1112 | 96.9% |
+| varying_smoothness | 0.0675 | 0.1980 | **0.0152** | 0.0237 | 81.9% |
+| varying_density | **0.0064** | 0.1947 | 0.0063 | 0.0069 | 36.7% |
+| combined | 0.0527 | 0.1455 | **0.0270** | 0.0410 | 44.3% |
+
+**NLL**
+
+| dataset | global | het_gp | regional_true | regional_learn |
+|---|---|---|---|---|
+| hetero_extreme | 0.896 | 0.202 | **−0.289** | −0.218 |
+| varying_smoothness | −0.131 | −0.379 | −0.357 | **−0.427** |
+| varying_density | **−1.571** | −0.957 | −1.571 | −1.564 |
+| combined | 0.838 | 1.200 | **0.667** | 0.827 |
+
+### What is solid
+
+**Noise-targeted region identification works.** Replacing uncertainty+sparsity with
+kNN-smoothed local residual variance lifts partition recovery from 41.4% to **96.9%**
+on hetero_extreme and 41.6% to **81.9%** on varying_smoothness (chance 33%). On
+varying_density it sits at 36.7% — correctly finding nothing, because density varies
+there but noise does not. On `combined` it reaches only 44.3%: density and noise vary
+together, and kNN residual variance is confounded by density. That is a real limit.
+
+**Regional noise never hurts.** It matches `global` on the control and beats it on the
+other three, on both metrics. It uses three constants where the het-GP fits a surface.
+
+### What is NOT trustworthy yet
+
+The het-GP looks unstable here — worse than doing nothing on 3 of 4 datasets. **Do not
+report that.** The het-GP arm is a single-iteration two-stage implementation written
+for this comparison, not the EM procedure of Kersting et al. (2007), and its
+hyperparameters were not selected on validation the way the other arms' were.
+
+This is precisely the error this whole audit began by documenting: the original
+project's headline came from comparing against a baseline that had not been given a
+fair tuning budget. Claiming "regional noise beats heteroscedastic GPs" on the
+strength of my own quick het-GP would repeat it exactly.
+
+Required before any such claim:
+1. A proper het-GP (EM to convergence, or a published implementation such as GPyTorch's
+   `HeteroskedasticNoise`), tuned on validation with the same budget as every other arm.
+2. Noise that varies **smoothly**, not in steps. These generators change noise at
+   region boundaries, which structurally favours a piecewise-constant noise model. The
+   comparison is currently rigged in regional noise's favour.
+3. Real datasets with documented heteroscedasticity.
+
+Until then the defensible claim is narrow: *regional noise is a cheap, robust
+improvement over a single global noise parameter, and the partition that delivers it
+can be learned from training residuals.* Whether it competes with a properly tuned
+heteroscedastic GP is **open**.
+
 ## Status and what is still needed
 
 - Regional noise is a coarse stand-in for a heteroscedastic GP. The comparison to
