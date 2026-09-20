@@ -1,4 +1,4 @@
-# Region-aware GPs: the right knob is the noise model, not the approximation
+# Region-aware GPs: a negative result in both of its natural forms
 
 This is the result the project actually supports, after the original evaluation was
 corrected (`AUDIT.md`) and re-run (`RESULTS_FAIR.md`).
@@ -147,3 +147,44 @@ heteroscedastic GP is **open**.
 python src/structured_routing.py   # sections 2 and 3
 python src/noise_routing.py        # section 4
 ```
+
+
+---
+
+# 6. FINAL: the noise-model repair also fails on real data
+
+Sections 4 and 5 proposed that the right knob is the noise model, on the strength of
+2.0-4.4x ECE gains on constructed data. **That claim is withdrawn.**
+
+With noise estimated from shared out-of-fold residuals (fixing a 1.1-1.9x in-sample
+bias that had handicapped the heteroscedastic baseline), equal tuning budgets for
+every arm, and 10 seeds on nine real datasets:
+
+| dataset | het ratio | global | het-GP (EM) | regional | p (reg vs het) |
+|---|---|---|---|---|---|
+| energy | 7.05 | **0.0385** | 0.0940 | 0.0792 | 0.695 |
+| airfoil | 4.44 | **0.0784** | 0.0971 | 0.0920 | 0.557 |
+| calhousing | 4.10 | **0.0693** | 0.1549 | **0.0693** | 0.002 |
+| concrete | 3.88 | **0.0400** | 0.1259 | 0.0660 | 0.002 |
+| yacht | 3.55 | **0.0648** | 0.0741 | 0.2515 | 0.002 |
+| wine_white | 2.75 | **0.0216** | 0.1680 | 0.0345 | 0.004 |
+| robot_arm | 2.60 | **0.0163** | 0.0421 | 0.0989 | 0.002 |
+| powerplant | 2.45 | **0.0197** | 0.1839 | 0.0214 | 0.002 |
+| protein | 2.19 | **0.0189** | 0.1127 | 0.0446 | 0.002 |
+
+**A single global noise parameter wins on 8 of 9.** Regional noise is actively harmful
+where it loses (yacht 0.2515 vs 0.0648; robot_arm 0.0989 vs 0.0163). On NLL it is
+milder -- regional 5, global 3, het-GP 1 -- but on ECE the conclusion is unambiguous.
+
+The constructed-data gains appear only at het ratios of order 10^3, roughly 200x
+beyond anything measured in real data. At realistic levels the extra parameters cost
+more in estimation variance than they recover in bias.
+
+Region identification is *not* the bottleneck: it is solvable (41-49% -> 96.9%
+recovery by targeting residual variance), and solving it does not make region-aware
+modelling pay.
+
+**Net:** region-aware GP modelling fails in both natural forms -- routing the
+approximation (mechanism: fidelity and predictive uncertainty are orthogonal) and
+routing the noise (mechanism: real heteroscedasticity is too mild to pay for the
+parameters). The paper in `paper/` reports both, with the mechanism for each.

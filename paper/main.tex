@@ -4,7 +4,6 @@
 \usepackage[capitalise]{cleveref}
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
-\newcommand{\pending}[1]{\textcolor{blue}{[PENDING: #1]}}
 \newcommand{\ece}{\mathrm{ECE}}
 
 \title{Region-Aware Gaussian Process Approximation Cannot Improve Calibration:\\
@@ -37,10 +36,12 @@ it perturbs predictive standard deviations by a median of ${\sim}100\%$, inflati
 measured $\ece$ by $3$--$9\times$. Calibration results for exact GPs above this
 threshold may not describe the model being reported.
 
-Finally, we separate the idea's premise from its mechanism. Region structure does
-matter, but the quantity that should vary by region is the \emph{noise model}, not
-the approximation. \pending{final claim conditional on the heteroscedastic-GP
-comparison in \cref{sec:noise}}
+Finally we test the natural repair. Since predictive variance is dominated by the
+noise term, one might make \emph{that} regional instead. On constructed data this
+improves $\ece$ by up to $4.4\times$; on nine real datasets, with out-of-fold noise
+estimation and equal tuning budgets, a single global noise parameter wins on eight of
+nine, beating both regional noise and a heteroscedastic GP. The gains exist only at
+levels of input-dependent noise some $200\times$ beyond any we measured in real data.
 \end{abstract}
 
 \section{Introduction}
@@ -70,8 +71,9 @@ favour routing.
 \item \textbf{A measurement hazard} (\cref{sec:hazard}): approximate predictive
 variance silently corrupts calibration metrics above a library-default threshold,
 with no signal in user code.
-\item \textbf{A redirection} (\cref{sec:noise}): the partition is useful, but for the
-noise model rather than the approximation. \pending{strength of this claim}
+\item \textbf{A tested repair that also fails} (\cref{sec:noise}): making the noise
+model regional helps only at unrealistic levels of input-dependent noise, and loses to
+a single global noise parameter on eight of nine real datasets.
 \end{enumerate}
 
 \section{Background}
@@ -232,26 +234,58 @@ $+0.0003$ $\ece$. On five standard benchmarks the corresponding figure is $+0.00
 with the oracle losing on four of five. A proportion-preserving random-routing control
 is statistically indistinguishable from importance-based routing.
 
-\section{The partition is for the noise model}
+\section{Regional noise does not rescue the idea either}
 \label{sec:noise}
 
-\Cref{eq:var} also indicates the constructive move: the term that varies across
-regions is $\sigma_n^2$, so that is what should be made regional. Holding the
-partition, the posterior mean and the latent variance fixed, and replacing the scalar
-noise with a per-region noise estimated from out-of-fold training residuals:
+\Cref{eq:var} indicates the constructive move: the term that varies across regions is
+$\sigma_n^2$, so that is what should be made regional. On our constructed datasets
+this works dramatically, improving $\ece$ by $1.95$--$4.44\times$. It does not survive
+contact with real data.
 
-\pending{results table from \texttt{src/hetero\_fair.py}, 10 seeds, versus a
-Kersting-style EM heteroscedastic GP with equal tuning budget. Prior expectation is
-that a correctly implemented heteroscedastic GP matches or beats regional noise,
-leaving the latter as a cheaper and more robust alternative rather than a better one.}
+We compare three arms on nine datasets: a single global noise parameter; a
+Kersting-style EM heteroscedastic GP \citep{kersting2007}; and per-region noise. All
+three estimate noise from shared \emph{out-of-fold} residuals, select hyperparameters
+on validation NLL with equal budgets, and never see test labels. Ten seeds.
 
-We additionally find that region identification must target the right quantity.
-Scoring regions by predictive uncertainty and local sparsity --- the natural choice,
-and the one used by the method that motivated this study --- recovers the true
-partition only $41$--$49\%$ of the time against a chance rate of $33\%$. Scoring by
-$k$NN-smoothed residual variance raises recovery to $96.9\%$ and $81.9\%$ on the two
-datasets where noise regions exist, and correctly stays at chance on the dataset where
-density varies but noise does not.
+\begin{table}[h]\centering
+\caption{$\ece$ on real data, ordered by measured input-dependent residual variance.
+A single global noise parameter wins on eight of nine datasets. Regional noise is
+actively harmful where it loses (yacht, robot\_arm). $p$ from a Wilcoxon signed-rank
+test on the ten paired per-seed differences between regional and heteroscedastic.}
+\label{tab:noise}
+\begin{tabular}{lrrrrr}
+\toprule
+dataset & het & global & het-GP (EM) & regional & $p$ \\
+\midrule
+energy      & 7.05 & \textbf{0.0385} & 0.0940 & 0.0792 & 0.695 \\
+airfoil     & 4.44 & \textbf{0.0784} & 0.0971 & 0.0920 & 0.557 \\
+calhousing  & 4.10 & \textbf{0.0693} & 0.1549 & \textbf{0.0693} & 0.002 \\
+concrete    & 3.88 & \textbf{0.0400} & 0.1259 & 0.0660 & 0.002 \\
+yacht       & 3.55 & \textbf{0.0648} & 0.0741 & 0.2515 & 0.002 \\
+wine\_white & 2.75 & \textbf{0.0216} & 0.1680 & 0.0345 & 0.004 \\
+robot\_arm  & 2.60 & \textbf{0.0163} & 0.0421 & 0.0989 & 0.002 \\
+powerplant  & 2.45 & \textbf{0.0197} & 0.1839 & 0.0214 & 0.002 \\
+protein     & 2.19 & \textbf{0.0189} & 0.1127 & 0.0446 & 0.002 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+On NLL the picture is milder --- regional noise wins on five of nine, global on three
+--- but on $\ece$ the conclusion is unambiguous: \textbf{neither input-dependent noise
+model improves calibration over a single global noise parameter on real data}. The
+gains we observed on constructed data appear only at het ratios of order $10^3$, some
+$200\times$ beyond anything we measured in practice (\cref{tab:screen}). At realistic
+levels the additional parameters cost more in estimation variance than they recover in
+bias, and both noise models can be misled by residual variance that reflects model
+bias rather than noise.
+
+\paragraph{Region identification is not the bottleneck.} It is worth ruling out the
+obvious rescue. Scoring regions by predictive uncertainty and local sparsity --- the
+natural choice --- recovers the true partition only $41$--$49\%$ of the time against
+$33\%$ chance. Scoring by $k$NN-smoothed residual variance raises this to $96.9\%$ and
+$81.9\%$ where noise regions exist, and correctly stays at chance where density varies
+but noise does not. Region identification is therefore solvable; solving it does not
+make region-aware modelling pay.
 
 \section{Threats to validity}
 \label{sec:threats}
@@ -274,10 +308,16 @@ are the closest prior art and must be distinguished carefully}
 
 \section{Conclusion}
 Region-aware \emph{approximation} cannot improve calibration, because approximation
-fidelity and predictive uncertainty are orthogonal. The premise behind it --- that
-regions differ and a model should adapt --- is sound, but the adaptation must happen
-in the noise model. Separately, practitioners measuring GP calibration should verify
-that their inference path is exact.
+fidelity and predictive uncertainty are orthogonal: a router can only choose among
+options that differ along the axis it is optimising, and sparse approximations of
+different fidelity do not. Redirecting the same regional machinery at the noise model
+--- the term that does control predictive variance --- fails for a different reason:
+at the levels of input-dependent noise found in real data, the extra parameters do not
+pay for themselves. We therefore report a negative result for region-aware GP
+modelling in both of its natural forms, together with the mechanism for each failure.
+Separately, practitioners measuring GP calibration should verify that their inference
+path is exact; above a library default that appears nowhere in user code, ours was
+not.
 
 \paragraph{Reproducibility.} All code, data and results:
 \url{https://github.com/Srikarmk/Aurora-GP}. Every number above is regenerated by
