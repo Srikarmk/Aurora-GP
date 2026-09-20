@@ -1,0 +1,288 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,graphicx,xcolor,hyperref,natbib}
+\usepackage[capitalise]{cleveref}
+
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\pending}[1]{\textcolor{blue}{[PENDING: #1]}}
+\newcommand{\ece}{\mathrm{ECE}}
+
+\title{Region-Aware Gaussian Process Approximation Cannot Improve Calibration:\\
+A Negative Result, Its Mechanism, and a Measurement Hazard}
+\author{Srikar M.K.\\ Northeastern University\\ \texttt{manda.k@northeastern.edu}}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A natural idea for scaling Gaussian processes is to spend approximation budget
+unevenly: route ``important'' regions of the input space to high-fidelity
+approximations and the rest to cheap ones. We show this cannot improve predictive
+calibration, and identify why. The predictive variance of a sparse GP is dominated by
+its shared global noise term rather than by the approximation gap, so models of
+differing fidelity emit nearly identical predictive standard deviations at the same
+input. On data whose regional structure is true by construction, the per-region
+spread in calibration error across Random Fourier Features, Nystr\"om at two ranks,
+and an exact GP is at most $0.009$ against a calibration error of $0.5$. Consequently
+an oracle that selects the best model per region, using the \emph{true} generative
+partition, improves expected calibration error by $+0.0003$ --- that is, not at all.
+The same holds on five standard benchmarks under an oracle and a
+proportion-preserving random-routing control.
+
+We also report a measurement hazard encountered while establishing this. In a widely
+used GP library, an opt-in setting documented as a fast variance approximation is
+inert below a training-set size threshold that never appears in user code, and above
+it perturbs predictive standard deviations by a median of ${\sim}100\%$, inflating
+measured $\ece$ by $3$--$9\times$. Calibration results for exact GPs above this
+threshold may not describe the model being reported.
+
+Finally, we separate the idea's premise from its mechanism. Region structure does
+matter, but the quantity that should vary by region is the \emph{noise model}, not
+the approximation. \pending{final claim conditional on the heteroscedastic-GP
+comparison in \cref{sec:noise}}
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Exact Gaussian process regression costs $O(n^3)$, and a large literature reduces this
+with sparse approximations \citep{rasmussen2006, quinonero2005, titsias2009}. Most
+such methods apply a single approximation uniformly across the input space. It is
+natural to ask whether the budget should instead be allocated unevenly: regions that
+are sparsely sampled, or where the model is uncertain, might warrant a more faithful
+approximation than regions that are dense and easy.
+
+We call this \emph{region-aware approximation}. The premise is appealing and the
+mechanism is intuitive. This paper shows the mechanism cannot deliver on the premise,
+for a reason that does not depend on the particular partitioning criterion, the
+particular approximations, or the quality of the implementation.
+
+\paragraph{Contributions.}
+\begin{enumerate}
+\item \textbf{An orthogonality result} (\cref{sec:orth}): approximation fidelity and
+predictive uncertainty are nearly independent, because a sparse GP's predictive
+variance is dominated by the shared noise term. We quantify this directly.
+\item \textbf{A negative result with its ceiling} (\cref{sec:empirical}): even an
+oracle given the true generative partition and the best model per region does not
+beat using one model everywhere, on standard benchmarks and on data purpose-built to
+favour routing.
+\item \textbf{A measurement hazard} (\cref{sec:hazard}): approximate predictive
+variance silently corrupts calibration metrics above a library-default threshold,
+with no signal in user code.
+\item \textbf{A redirection} (\cref{sec:noise}): the partition is useful, but for the
+noise model rather than the approximation. \pending{strength of this claim}
+\end{enumerate}
+
+\section{Background}
+\label{sec:background}
+
+\paragraph{Sparse GP approximations.} Given data $\{(x_i,y_i)\}_{i=1}^n$ with
+$y = f(x) + \varepsilon$, $\varepsilon \sim \mathcal{N}(0,\sigma_n^2)$, a GP prior
+$f \sim \mathcal{GP}(0,k)$ yields a predictive distribution at $x_*$ with variance
+\begin{equation}
+\label{eq:var}
+\mathbb{V}[y_*] \;=\; \underbrace{k(x_*,x_*) - k_*^\top (K+\sigma_n^2 I)^{-1} k_*}_{\text{latent, approximation-dependent}} \;+\; \underbrace{\sigma_n^2}_{\text{shared}} .
+\end{equation}
+Random Fourier Features \citep{rahimi2007} and Nystr\"om / subset-of-regressors
+\citep{williams2001, smola2000} replace the first term with a rank-$m$ surrogate.
+Crucially, they leave the second term untouched. \Cref{sec:orth} shows this is what
+dooms region-aware approximation.
+
+\paragraph{Calibration metrics.} For regression we use the expected calibration error
+over central predictive intervals,
+\begin{equation}
+\ece = \frac{1}{B}\sum_{b=1}^{B} \Big| \tfrac{1}{n}\textstyle\sum_i \mathbf{1}\big[|y_i-\mu_i| \le z_{(1+c_b)/2}\,\sigma_i\big] - c_b \Big|,
+\end{equation}
+with $c_b$ spanning $[0.1,0.9]$, alongside Gaussian negative log-likelihood. Both
+depend on $\sigma_i$, which is what makes \cref{sec:hazard} consequential.
+
+\section{A measurement hazard in approximate predictive variance}
+\label{sec:hazard}
+
+Before reporting calibration comparisons we must establish that they measure the
+model rather than the inference path.
+
+GPyTorch \citep{gardner2018} provides \texttt{fast\_pred\_var()}, an implementation of
+LOVE \citep{pleiss2018} that approximates the predictive covariance, and separately
+falls back from Cholesky to iterative solves when the training set exceeds
+\texttt{max\_cholesky\_size} (default $800$). We fit one model per cell and vary
+\emph{only} the inference path.
+
+\begin{table}[h]\centering
+\caption{Same fitted model; only the inference path varies. Error is the median over
+test points of $|\sigma_{\text{mode}} - \sigma_{\text{exact}}|/\sigma_{\text{exact}}$.
+Onset is exact: over $20$ cells with $n\le800$ the maximum error is $0.0018\%$; over
+$16$ cells with $n>800$ the minimum is $0.089\%$.}
+\label{tab:hazard}
+\begin{tabular}{lrrrr}
+\toprule
+dataset & $n_{\text{train}}$ & $\ece$ default & $\ece$ exact & median $\sigma$ error \\
+\midrule
+concrete   &  618 & 0.0434 & 0.0434 & \phantom{00}0.00\% \\
+protein    & 4000 & 0.1084 & 0.0367 & \phantom{0}33.44\% \\
+robot\_arm & 4000 & 0.2599 & 0.0824 & 199.22\% \\
+sarcos     & 4000 & 0.3068 & 0.0302 & 213.62\% \\
+synthetic  & 4000 & 0.4209 & 0.0654 & 559.12\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A four-way decomposition isolates the cause. Raising \texttt{max\_cholesky\_size}
+alone leaves the error unchanged ($101.98\%$ median across cells with $n>800$);
+disabling \texttt{fast\_pred\_var()} alone reduces it to $5.00\%$. The threshold
+matters only because LOVE is a \emph{no-op} below it: the approximation is silently
+inert on small data and silently severe on large data, with no change in user code.
+
+\paragraph{Implication.} Reported $\ece$ or NLL for ``exact'' GPs trained above
+$n=800$ in this library may describe an approximation. We recommend that calibration
+studies disable fast predictive variance and raise the Cholesky threshold above $n$,
+and report having done so.
+
+\section{Fidelity and uncertainty are orthogonal}
+\label{sec:orth}
+
+\Cref{eq:var} suggests that if $\sigma_n^2$ dominates, then changing the rank of the
+approximation --- which affects only the first term --- barely moves the predictive
+standard deviation. We verify this directly on \texttt{hetero\_extreme}, a dataset
+whose noise varies $50\times$ across three regions by construction.
+
+\begin{table}[h]\centering
+\caption{Per-region $\ece$ of four models of very different fidelity, evaluated at the
+same inputs. Every model emits a mean predictive standard deviation of $0.563$ in all
+three regions, while the true noise standard deviation varies from $0.020$ to $1.000$.}
+\label{tab:orth}
+\begin{tabular}{lrrrrrr}
+\toprule
+region & RFF & Nystr\"om-500 & Nystr\"om-1500 & exact GP & spread & true $\sigma_n$ \\
+\midrule
+0 & 0.4970 & 0.4979 & 0.4979 & 0.4982 & 0.0012 & 0.020 \\
+1 & 0.3792 & 0.3791 & 0.3791 & 0.3751 & 0.0041 & 0.141 \\
+2 & 0.1658 & 0.1648 & 0.1648 & 0.1740 & 0.0092 & 1.000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The spread across models \emph{within} a region is at most $0.009$, while the
+calibration error itself is of order $0.5$. There is nothing to route between. This is
+the paper's central mechanism: a router can only choose among the options it is given,
+and along the axis that matters --- predictive uncertainty --- those options are
+indistinguishable.
+
+\section{Empirical study}
+\label{sec:empirical}
+
+\subsection{Protocol}
+All methods share one split per (dataset, seed); hyperparameters are fitted by
+marginal likelihood on training data; model capacity is selected on a validation
+split; the test split is read once. A single $\ece$ estimator is used for every
+method, and exact predictive variance is used throughout (\cref{sec:hazard}).
+
+\subsection{Datasets are screened, not assumed}
+\label{sec:screen}
+Because the hypothesis concerns input-dependent structure, we measure it rather than
+assume it. \Cref{tab:screen} reports $\mathrm{het}$, the ratio of the $90$th to $10$th
+percentile of $k$NN-smoothed out-of-sample squared residuals.
+
+\begin{table}[h]\centering
+\caption{Measured input-dependent residual variance. Real data spans $2.4$--$7.1$.
+Note that \texttt{synthetic\_heteroscedastic}, a dataset constructed specifically as a
+controlled heteroscedastic test case, scores \emph{below} sarcos.}
+\label{tab:screen}
+\begin{tabular}{llr}
+\toprule
+group & dataset & het ratio \\
+\midrule
+constructed & hetero\_extreme & 1557.34 \\
+constructed & varying\_smoothness & 22.33 \\
+real & energy & 7.05 \\
+standard & sarcos & 5.43 \\
+real & airfoil & 4.44 \\
+real & calhousing & 4.10 \\
+standard & concrete & 3.88 \\
+standard & synthetic\_heteroscedastic & 3.71 \\
+real & yacht & 3.55 \\
+standard & protein & 2.19 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Routing does not help, even given an oracle}
+\label{sec:routing}
+
+\begin{table}[h]\centering
+\caption{$\ece$ on data whose regional structure is true by construction. \emph{true
+oracle} uses the true generative partition and selects the best model per region on
+validation data --- an upper bound on any region-aware router with these models.}
+\label{tab:routing}
+\begin{tabular}{lrrrrr}
+\toprule
+dataset & uniform best & true oracle & learned oracle & importance & random \\
+\midrule
+hetero\_extreme     & \textbf{0.2299} & 0.2315 & 0.2302 & 0.2322 & 0.2316 \\
+varying\_smoothness & \textbf{0.0656} & 0.0658 & 0.0659 & 0.0661 & 0.0659 \\
+varying\_density    & \textbf{0.0069} & 0.0075 & 0.0070 & 0.0069 & 0.0065 \\
+combined            & 0.0525 & 0.0515 & \textbf{0.0504} & 0.0503 & 0.0537 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The mean difference between the true oracle and a single model everywhere is
+$+0.0003$ $\ece$. On five standard benchmarks the corresponding figure is $+0.0001$,
+with the oracle losing on four of five. A proportion-preserving random-routing control
+is statistically indistinguishable from importance-based routing.
+
+\section{The partition is for the noise model}
+\label{sec:noise}
+
+\Cref{eq:var} also indicates the constructive move: the term that varies across
+regions is $\sigma_n^2$, so that is what should be made regional. Holding the
+partition, the posterior mean and the latent variance fixed, and replacing the scalar
+noise with a per-region noise estimated from out-of-fold training residuals:
+
+\pending{results table from \texttt{src/hetero\_fair.py}, 10 seeds, versus a
+Kersting-style EM heteroscedastic GP with equal tuning budget. Prior expectation is
+that a correctly implemented heteroscedastic GP matches or beats regional noise,
+leaving the latter as a cheaper and more robust alternative rather than a better one.}
+
+We additionally find that region identification must target the right quantity.
+Scoring regions by predictive uncertainty and local sparsity --- the natural choice,
+and the one used by the method that motivated this study --- recovers the true
+partition only $41$--$49\%$ of the time against a chance rate of $33\%$. Scoring by
+$k$NN-smoothed residual variance raises recovery to $96.9\%$ and $81.9\%$ on the two
+datasets where noise regions exist, and correctly stays at chance on the dataset where
+density varies but noise does not.
+
+\section{Threats to validity}
+\label{sec:threats}
+\begin{itemize}
+\item Our constructed datasets reach het ratios of ${\sim}1557$ where real data reaches
+at most ${\sim}7$ (\cref{tab:screen}), and vary noise in steps rather than smoothly,
+which structurally favours a piecewise-constant noise model. Claims in
+\cref{sec:noise} rest on the real-data results, not the constructed ones.
+\item The heteroscedastic baseline is our own implementation. \todo{add a comparison
+against an independent implementation before submission}
+\item Residual variance that varies with $x$ may reflect model bias rather than noise;
+we therefore use the term \emph{input-dependent residual variance}.
+\item \todo{$n$ capped at 2500--8000 throughout; scaling behaviour untested}
+\end{itemize}
+
+\section{Related work}
+\todo{sparse GPs; heteroscedastic GPs \citep{goldberg1997, kersting2007}; calibration
+in regression \citep{kuleshov2018}; locally adaptive and mixture-of-experts GPs, which
+are the closest prior art and must be distinguished carefully}
+
+\section{Conclusion}
+Region-aware \emph{approximation} cannot improve calibration, because approximation
+fidelity and predictive uncertainty are orthogonal. The premise behind it --- that
+regions differ and a model should adapt --- is sound, but the adaptation must happen
+in the noise model. Separately, practitioners measuring GP calibration should verify
+that their inference path is exact.
+
+\paragraph{Reproducibility.} All code, data and results:
+\url{https://github.com/Srikarmk/Aurora-GP}. Every number above is regenerated by
+\texttt{./reproduce.sh}.
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+\end{document}

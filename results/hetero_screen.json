@@ -1,0 +1,122 @@
+[
+  {
+    "group": "synthetic",
+    "dataset": "hetero_extreme",
+    "het_ratio": 1557.3375725700696,
+    "bp_r2": 0.18815111659762807,
+    "n": 4000,
+    "d": 2
+  },
+  {
+    "group": "synthetic",
+    "dataset": "varying_smoothness",
+    "het_ratio": 22.326846564056087,
+    "bp_r2": 0.2032256382108686,
+    "n": 4000,
+    "d": 2
+  },
+  {
+    "group": "synthetic",
+    "dataset": "combined",
+    "het_ratio": 18.921390469047115,
+    "bp_r2": 0.06733003936698523,
+    "n": 4000,
+    "d": 2
+  },
+  {
+    "group": "real",
+    "dataset": "energy",
+    "het_ratio": 7.053244790929005,
+    "bp_r2": 0.08423752034631338,
+    "n": 768,
+    "d": 8
+  },
+  {
+    "group": "original",
+    "dataset": "sarcos",
+    "het_ratio": 5.4284041560682255,
+    "bp_r2": 0.06604350205203358,
+    "n": 4000,
+    "d": 21
+  },
+  {
+    "group": "real",
+    "dataset": "airfoil",
+    "het_ratio": 4.442564015164913,
+    "bp_r2": 0.06704206305548266,
+    "n": 1503,
+    "d": 5
+  },
+  {
+    "group": "real",
+    "dataset": "calhousing",
+    "het_ratio": 4.100281300175307,
+    "bp_r2": 0.04190688871258119,
+    "n": 4000,
+    "d": 8
+  },
+  {
+    "group": "original",
+    "dataset": "concrete",
+    "het_ratio": 3.8781804579209136,
+    "bp_r2": 0.10666033571790323,
+    "n": 1030,
+    "d": 8
+  },
+  {
+    "group": "original",
+    "dataset": "synthetic_heteroscedastic",
+    "het_ratio": 3.711532483373514,
+    "bp_r2": 0.002835678830088617,
+    "n": 4000,
+    "d": 2
+  },
+  {
+    "group": "real",
+    "dataset": "yacht",
+    "het_ratio": 3.551944818785363,
+    "bp_r2": 0.3715306498713954,
+    "n": 308,
+    "d": 6
+  },
+  {
+    "group": "real",
+    "dataset": "wine_white",
+    "het_ratio": 2.7534388268928067,
+    "bp_r2": 0.02052929718001717,
+    "n": 4000,
+    "d": 11
+  },
+  {
+    "group": "original",
+    "dataset": "robot_arm",
+    "het_ratio": 2.5992787864598546,
+    "bp_r2": 0.007584959347115672,
+    "n": 4000,
+    "d": 8
+  },
+  {
+    "group": "real",
+    "dataset": "powerplant",
+    "het_ratio": 2.4533766179854766,
+    "bp_r2": 0.005974576626488148,
+    "n": 4000,
+    "d": 4
+  },
+  {
+    "group": "original",
+    "dataset": "protein",
+    "het_ratio": 2.1944607491634454,
+    "bp_r2": 0.017434989013326185,
+    "n": 4000,
+    "d": 9
+  },
+  {
+    "group": "synthetic",
+    "dataset": "varying_density",
+    "het_ratio": 1.9559049969141635,
+    "bp_r2": 0.0023588562239592603,
+    "n": 4000,
+    "d": 2
+  }
+]
