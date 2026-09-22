@@ -40,8 +40,10 @@ Finally we test the natural repair. Since predictive variance is dominated by th
 noise term, one might make \emph{that} regional instead. On constructed data this
 improves $\ece$ by up to $4.4\times$; on nine real datasets, with out-of-fold noise
 estimation and equal tuning budgets, a single global noise parameter wins on eight of
-nine, beating both regional noise and a heteroscedastic GP. The gains exist only at
-levels of input-dependent noise some $200\times$ beyond any we measured in real data.
+nine at $n\approx1500$, beating both regional noise and a heteroscedastic GP. An
+adversarial audit qualifies this sharply: the advantage is a function of training-set
+size and reverses by $n=4000$, and it holds on calibration metrics but not on proper
+scoring rules. We report the qualified version.
 \end{abstract}
 
 \section{Introduction}
@@ -305,13 +307,75 @@ most heteroscedastic real dataset at $7.05$, is a clean win for global noise.
 
 On NLL the ordering partly reverses --- regional wins seven of eleven --- which says
 the regional model sharpens predictions without making their intervals better
-calibrated. On $\ece$ the conclusion is unambiguous: \textbf{neither input-dependent
-noise model improves calibration over a single global noise parameter on real data}. The
+calibrated. On $\ece$, \textbf{at this training-set size}, neither input-dependent
+noise model improves calibration over a single global noise parameter. The
+qualification is essential: \cref{sec:adversarial} shows the result reverses by
+$n=4000$. The
 gains we observed on constructed data appear only at het ratios of order $10^3$, some
 $200\times$ beyond anything we measured in practice (\cref{tab:screen}). At realistic
 levels the additional parameters cost more in estimation variance than they recover in
 bias, and both noise models can be misled by residual variance that reflects model
 bias rather than noise.
+
+\subsection{Adversarial audit of this section's claim}
+\label{sec:adversarial}
+We attacked the claim of this section five ways (\texttt{src/adversarial.py},
+\texttt{src/adversarial\_n.py}). Three attacks failed and two succeeded; we report
+both.
+
+\paragraph{Failed: sharpness.} A model with systematically wide intervals can win
+$\ece$ without being better. Mean predictive widths are global $1.52$, regional
+$1.72$: regional is the \emph{wider} arm and still loses on calibration, so global is
+simultaneously sharper and better calibrated.
+
+\paragraph{Failed: granularity.} Regional noise with $2,3,5,10,20$ regions improves
+monotonically ($\ece$ $0.0960 \to 0.0806$) but never approaches global ($0.0477$),
+even as the partition approaches a smooth noise model.
+
+\paragraph{Failed: tuning parity.} Giving the global arm the same
+validation-selected freedom as the others changes little.
+
+\paragraph{Succeeded: metric choice.} On calibration metrics ($\ece$ at $5/10/20$
+bins, $90\%$ coverage error) global wins on most datasets. On the two \emph{proper}
+scoring rules the ranking reverses by dataset count: regional wins CRPS on four of six
+and NLL on four of six, though global remains better on the mean of every metric. The
+split is systematic, not noise: regional noise buys sharpness at the cost of
+calibration.
+
+\paragraph{Succeeded, and decisively: training-set size.} The gap is a function of
+$n$, and it reverses.
+
+\begin{table}[h]\centering
+\caption{$\ece$ gap (regional $-$ global); positive means global is better. The gap
+falls monotonically with training-set size and changes sign by $n=4000$. Columns
+are empty where the dataset is too small.}
+\label{tab:attackn}
+\begin{tabular}{rrrrrr}
+\toprule
+$n_{\text{train}}$ & calhousing & powerplant & wine\_white & airfoil & mean \\
+\midrule
+ 300 & $+0.0262$ & $-0.0063$ & $+0.0161$ & $+0.0268$ & $+0.0157$ \\
+ 600 & $+0.0068$ & $-0.0044$ & $+0.0060$ & $+0.0126$ & $+0.0053$ \\
+1200 & $+0.0091$ & $-0.0019$ & $+0.0035$ & --- & $+0.0036$ \\
+2400 & $-0.0183$ & $-0.0067$ & $+0.0315$ & --- & $+0.0022$ \\
+4000 & $-0.0250$ & $-0.0012$ & $-0.0022$ & --- & $\mathbf{-0.0095}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Consequence.} \textbf{The negative result for regional noise is an artifact
+of training-set size and must be withdrawn as a general claim.} Our main experiments
+cap $n_{\text{train}}$ at ${\sim}1500$, where regional noise does lose; by $n=4000$ it
+wins. The mechanism is unsurprising in hindsight --- a per-region variance estimated
+from a few hundred residuals is itself high-variance --- but it was not visible until
+we swept $n$ deliberately. The correct statement is that \emph{regional noise requires
+more data than we gave it}, and the crossover on these datasets is near $n\approx2500$.
+
+This does \emph{not} affect \cref{sec:orth,sec:routing}. The orthogonality result
+concerns the decomposition in \cref{eq:var} and the observation that models of
+differing fidelity emit near-identical predictive variance; neither depends on
+estimating a noise level from limited residuals. \todo{re-run the routing experiments
+at $n \ge 4000$ to confirm this directly rather than by argument}
 
 \paragraph{Region identification is not the bottleneck.} It is worth ruling out the
 obvious rescue. Scoring regions by predictive uncertainty and local sparsity --- the
