@@ -41,6 +41,18 @@ $PY routing_recheck.py
 echo "==> Fair benchmark re-run with exact GP inference"
 $PY fair_benchmark_exact.py
 
+echo "==> Adversarial audit: metric battery, granularity, tuning parity"
+$PY adversarial.py
+
+echo "==> Adversarial audit: sample-size sweep"
+$PY adversarial_n.py
+
+echo "==> Shrinkage-regularised regional noise"
+$PY shrinkage_noise.py
+
+echo "==> Routing headroom at large n"
+$PY routing_largen.py
+
 echo "==> Diff test: same protocol on disjoint seeds 10-19"
 $PY diff_seeds.py
 

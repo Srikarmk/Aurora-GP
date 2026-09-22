@@ -374,8 +374,59 @@ more data than we gave it}, and the crossover on these datasets is near $n\appro
 This does \emph{not} affect \cref{sec:orth,sec:routing}. The orthogonality result
 concerns the decomposition in \cref{eq:var} and the observation that models of
 differing fidelity emit near-identical predictive variance; neither depends on
-estimating a noise level from limited residuals. \todo{re-run the routing experiments
-at $n \ge 4000$ to confirm this directly rather than by argument}
+estimating a noise level from limited residuals. We checked this directly rather than
+relying on the argument (\texttt{src/routing\_largen.py}), since assuming a result is
+$n$-independent is precisely the error attack~E exposed. Sweeping $n_{\text{train}}$
+from $600$ to $4800$, the oracle-minus-uniform $\ece$ gap remains at zero within
+noise ($+0.0004$, $+0.0009$, $-0.0003$, $-0.0004$), and the relative spread in mean
+predictive standard deviation across the four fidelities \emph{falls} with $n$
+($32.4\%$ at $n{=}600$, where the approximations are over-parameterised relative to
+the data, then $1.5\%$, $2.4\%$, $3.6\%$). Routing headroom does not appear at scale,
+and orthogonality strengthens.
+
+\subsection{Repairing regional noise by shrinkage}
+\label{sec:shrink}
+Attack~E diagnoses regional noise as a bias--variance problem: a per-region variance
+estimated from a few hundred residuals is itself high-variance. The standard remedy is
+to shrink the regional estimate toward the global one,
+$\sigma^2_r(\lambda) = \lambda\,\sigma^2_{\text{global}} + (1-\lambda)\,\hat\sigma^2_r$,
+with $\lambda$ selected on validation. We also test an empirical-Bayes variant
+requiring no search, $\lambda_r = (s_r^2/n_r)/(s_r^2/n_r + \tau^2)$, in which regions
+with fewer points shrink harder automatically.
+
+\begin{table}[h]\centering
+\caption{CRPS (a proper scoring rule) by training-set size, averaged over five real
+datasets and three seeds. Shrinkage or empirical Bayes is best at every $n$; no other
+arm is.}
+\label{tab:shrink}
+\begin{tabular}{rrrrrl}
+\toprule
+$n_{\text{train}}$ & global & regional & shrunk & EB & best \\
+\midrule
+ 300 & 1.0459 & 1.0463 & 1.0449 & \textbf{1.0438} & EB \\
+ 600 & 1.1497 & 1.1435 & 1.1433 & \textbf{1.1409} & EB \\
+1200 & 0.9954 & 0.9936 & \textbf{0.9922} & 0.9924 & shrunk \\
+2400 & 0.9467 & 0.9469 & \textbf{0.9445} & 0.9459 & shrunk \\
+4000 & 0.9843 & 0.9805 & \textbf{0.9770} & 0.9793 & shrunk \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The gains are small (${\sim}0.3\%$) but they are the only ones that hold at every
+sample size, and the empirical-Bayes variant obtains them without a tuning knob.
+
+\paragraph{Two honest limits.} First, the improvement is confined to proper scoring
+rules. On $\ece$ shrinkage can be \emph{worse} than the global arm it interpolates
+toward --- $0.0714$ versus $0.0438$ at $n{=}300$ --- because $\lambda$ is selected on
+validation NLL while $\ece$ would prefer $\lambda\approx1$. This is the
+sharpness--calibration tradeoff of \cref{sec:adversarial} reappearing as a
+criterion--metric mismatch.
+
+Second, the mechanism we proposed is not supported. If shrinkage worked because
+per-region estimates are noisy at small $n$, the selected $\lambda$ should fall as $n$
+grows. It does not: the selected values are $0.27, 0.10, 0.18, 0.16, 0.22$ across
+$n = 300 \ldots 4000$, with no trend. The method helps; our explanation for why does
+not survive its own prediction, and we do not offer a replacement without evidence.
 
 \paragraph{Region identification is not the bottleneck.} It is worth ruling out the
 obvious rescue. Scoring regions by predictive uncertainty and local sparsity --- the
