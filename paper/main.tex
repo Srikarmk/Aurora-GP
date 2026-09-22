@@ -302,6 +302,15 @@ $81.9\%$ where noise regions exist, and correctly stays at chance where density 
 but noise does not. Region identification is therefore solvable; solving it does not
 make region-aware modelling pay.
 
+\subsection{Seed robustness}
+\label{sec:diff}
+All reported results use seeds $0$--$9$. We re-ran the identical protocol on the
+disjoint seeds $10$--$19$ (\texttt{src/diff\_seeds.py}). Per-dataset winners agree on
+ten of eleven datasets; the $\ece$ best-arm count moves from global~$9$~/~regional~$2$
+to global~$8$~/~regional~$3$, the single flip being powerplant, whose margin is small
+($0.0197$ vs $0.0218$). The heteroscedastic GP wins zero datasets on $\ece$ in both
+seed sets. The conclusion does not depend on the seeds.
+
 \section{Threats to validity}
 \label{sec:threats}
 \begin{itemize}

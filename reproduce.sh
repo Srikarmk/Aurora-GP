@@ -20,11 +20,29 @@ $PY mechanism_report.py
 echo "==> Convergence check on the original exact-GP baseline"
 $PY convergence_check.py
 
+echo "==> Orthogonality: fidelity vs predictive uncertainty (paper Table 2)"
+$PY orthogonality.py
+
+echo "==> Heteroscedasticity screen across all datasets (paper Table 3)"
+$PY measure_hetero.py
+
+echo "==> Inference corruption sweep (paper Table 1)"
+$PY inference_corruption.py
+$PY inference_report.py
+
+echo "==> Structured-data routing and noise studies (paper Tables 5, 6)"
+$PY structured_routing.py
+$PY noise_routing.py
+$PY hetero_fair.py
+
 echo "==> Routing headroom re-checked with exact GP inference"
 $PY routing_recheck.py
 
 echo "==> Fair benchmark re-run with exact GP inference"
 $PY fair_benchmark_exact.py
+
+echo "==> Diff test: same protocol on disjoint seeds 10-19"
+$PY diff_seeds.py
 
 echo
 echo "Done. See RESULTS_FAIR.md, results/fair/report.txt, results/mechanism/report.txt"
