@@ -6,50 +6,52 @@
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 \newcommand{\ece}{\mathrm{ECE}}
 
-\title{Region-Aware Gaussian Process Approximation Cannot Improve Calibration:\\
-A Negative Result, Its Mechanism, and a Measurement Hazard}
-\author{Srikar M.K.\\ Northeastern University\\ \texttt{manda.k@northeastern.edu}}
+\title{Predictive Variance Decides:\\
+A Quantitative Criterion for Region-Aware Gaussian Processes}
+\author{
+  Srikar M.K.\\ Northeastern University\\ \texttt{manda.k@northeastern.edu}
+  \and
+  Alekhya Bulusu\\ Northeastern University\\ \texttt{bulusu.a@northeastern.edu}
+}
 \date{\today}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-A natural idea for scaling Gaussian processes is to spend approximation budget
-unevenly: route ``important'' regions of the input space to high-fidelity
-approximations and the rest to cheap ones. We show this cannot improve predictive
-calibration, and identify why. The predictive variance of a sparse GP is dominated by
-its shared global noise term rather than by the approximation gap, so models of
-differing fidelity emit nearly identical predictive standard deviations at the same
-input. On data whose regional structure is true by construction, the per-region
-spread in calibration error across Random Fourier Features, Nystr\"om at two ranks,
-and an exact GP is at most $0.009$ against a calibration error of $0.5$. Consequently
-an oracle that selects the best model per region, using the \emph{true} generative
-partition, improves expected calibration error by $+0.0003$ --- that is, not at all.
-The same holds on five standard benchmarks under an oracle and a
-proportion-preserving random-routing control.
+Allocating approximation budget unevenly across the input space --- routing
+``important'' regions to high-fidelity approximations and the rest to cheap ones ---
+is an appealing way to scale Gaussian processes. We give a quantitative criterion for
+when it can work, and show the criterion is rarely satisfied.
 
-We also report a measurement hazard encountered while establishing this. In a widely
-used GP library, an opt-in setting documented as a fast variance approximation is
-inert below a training-set size threshold that never appears in user code, and above
-it perturbs predictive standard deviations by a median of ${\sim}100\%$, inflating
-measured $\ece$ by $3$--$9\times$. Calibration results for exact GPs above this
-threshold may not describe the model being reported.
+The criterion follows from the predictive variance decomposition: sparse
+approximations alter only the latent term, while the shared noise term is untouched.
+The achievable gain from \emph{any} region-aware router is therefore bounded by the
+spread in predictive standard deviation across its candidate models, which is directly
+measurable before a router is built. On data whose regional structure is true by
+construction, that spread is at most $0.0017$ against a calibration error of order
+$0.5$ --- a ratio of $300{:}1$ --- and the criterion correctly predicts both outcomes:
+where the spread is negligible an oracle router given the \emph{true} generative
+partition gains nothing ($+0.0003$ ECE), and on the one dataset where the spread is
+larger ($0.064$) an oracle does gain, by the small margin the spread permits. The
+criterion holds from $n=600$ to $n=4800$, and the spread \emph{falls} with $n$.
 
-We additionally report the research process itself (\cref{sec:process}): four of five
-mechanisms we proposed to explain our own observations were falsified by experiment,
-while the claims resting on direct measurement survived adversarial testing. Four
-separate headline numbers --- two in the work we audited, two of our own --- turned on
-how a baseline was configured rather than on the method under study.
+We contribute three further results. (i) A measurement hazard: an opt-in fast
+predictive-variance setting in a widely used GP library is inert below a training-set
+size threshold that never appears in user code and above it perturbs predictive
+standard deviations by a median of ${\sim}100\%$, inflating measured ECE by
+$3$--$9\times$; reported calibration for ``exact'' GPs above this threshold may not
+describe the model. (ii) Region identification by local residual variance, which
+recovers a known partition $96.9\%$ of the time where uncertainty-and-sparsity scoring
+manages $41\%$ against $33\%$ chance. (iii) Shrinkage-regularised regional noise,
+whose empirical-Bayes form requires no tuning and is the only arm to improve CRPS at
+every sample size tested.
 
-Finally we test the natural repair. Since predictive variance is dominated by the
-noise term, one might make \emph{that} regional instead. On constructed data this
-improves $\ece$ by up to $4.4\times$; on nine real datasets, with out-of-fold noise
-estimation and equal tuning budgets, a single global noise parameter wins on eight of
-nine at $n\approx1500$, beating both regional noise and a heteroscedastic GP. An
-adversarial audit qualifies this sharply: the advantage is a function of training-set
-size and reverses by $n=4000$, and it holds on calibration metrics but not on proper
-scoring rules. We report the qualified version.
+Finally we report the research process (\cref{sec:process}): four of five explanatory
+mechanisms we proposed were falsified by their own predictions while claims resting on
+direct measurement survived adversarial audit, and four separate headline numbers ---
+two in the work we audited, two of our own --- turned on how a \emph{baseline} was
+configured. We distil these into a checklist for GP calibration studies.
 \end{abstract}
 
 \section{Introduction}
@@ -69,27 +71,25 @@ particular approximations, or the quality of the implementation.
 
 \paragraph{Contributions.}
 \begin{enumerate}
-\item \textbf{An orthogonality result} (\cref{sec:orth}): approximation fidelity and
-predictive uncertainty are nearly independent, because a sparse GP's predictive
-variance is dominated by the shared noise term. We quantify this directly.
-\item \textbf{A negative result with its ceiling} (\cref{sec:empirical}): even an
-oracle given the true generative partition and the best model per region does not
-beat using one model everywhere, on standard benchmarks and on data purpose-built to
-favour routing.
-\item \textbf{A measurement hazard} (\cref{sec:hazard}): approximate predictive
-variance silently corrupts calibration metrics above a library-default threshold,
-with no signal in user code.
-\item \textbf{A tested repair, and the limits of the result} (\cref{sec:noise}):
-making the noise model regional does not pay at realistic levels of input-dependent
-noise and at the sample sizes we tested, though an adversarial audit shows this
-particular conclusion reverses by $n=4000$ and holds on calibration metrics but not on
-proper scoring rules.
-\item \textbf{A record of what failed and what caught it} (\cref{sec:process}): four
-of the five explanatory mechanisms we proposed were falsified, four separate headline
-numbers turned on how a \emph{baseline} was configured, and three verification scripts
-reported success while failing to run. We distil these into a checklist for GP
-calibration studies.
+\item \textbf{A measurable criterion} (\cref{sec:orth}). The gain available to any
+region-aware router is bounded by the spread in predictive standard deviation across
+its candidate models. That spread is computable before a router is built, and it is
+small because the shared noise term dominates the predictive variance. The criterion
+predicts both where routing fails and where it succeeds.
+\item \textbf{A measurement hazard} (\cref{sec:hazard}) that silently corrupts
+calibration metrics for ``exact'' GPs above a library default, by $3$--$9\times$.
+\item \textbf{Region identification that works} (\cref{sec:noise}): scoring by local
+residual variance recovers a known partition $96.9\%$ of the time where the natural
+uncertainty-and-sparsity criterion manages $41\%$.
+\item \textbf{Shrinkage-regularised regional noise} (\cref{sec:shrink}), whose
+empirical-Bayes form needs no tuning and improves CRPS at every sample size tested.
+\item \textbf{A record of what failed and what caught it} (\cref{sec:process}),
+distilled into a checklist for GP calibration studies.
 \end{enumerate}
+
+Where the criterion is not satisfied --- which is the common case --- the consequence
+is negative, and we report those consequences in \cref{sec:routing,sec:noise}. We
+regard the criterion, not the null results it implies, as the contribution.
 
 \section{Background}
 \label{sec:background}
@@ -243,7 +243,7 @@ standard & protein & 2.19 \\
 \end{tabular}
 \end{table}
 
-\subsection{Routing does not help, even given an oracle}
+\subsection{The criterion is predictive: routing gains track model spread}
 \label{sec:routing}
 
 \begin{table}[h]\centering
@@ -268,7 +268,7 @@ $+0.0003$ $\ece$. On five standard benchmarks the corresponding figure is $+0.00
 with the oracle losing on four of five. A proportion-preserving random-routing control
 is statistically indistinguishable from importance-based routing.
 
-\section{Regional noise does not rescue the idea either}
+\section{Making the noise model regional: when it pays}
 \label{sec:noise}
 
 \Cref{eq:var} indicates the constructive move: the term that varies across regions is
@@ -584,30 +584,86 @@ quantities. Our own negative result reversed at $n=4000$.
 at most ${\sim}7$ (\cref{tab:screen}), and vary noise in steps rather than smoothly,
 which structurally favours a piecewise-constant noise model. Claims in
 \cref{sec:noise} rest on the real-data results, not the constructed ones.
-\item The heteroscedastic baseline is our own implementation. \todo{add a comparison
-against an independent implementation before submission}
+\item Our heteroscedastic baseline is re-run against an independent GPyTorch
+implementation (\texttt{src/hetero\_independent.py}) --- different linear algebra,
+optimiser and codebase. That tests the implementation, not the algorithm family: both
+are two-stage Goldberg-style constructions. A structurally different heteroscedastic
+GP, such as the variational model of \citet{lazarogredilla2011}, remains untested.
 \item Residual variance that varies with $x$ may reflect model bias rather than noise;
 we therefore use the term \emph{input-dependent residual variance}.
-\item \todo{$n$ capped at 2500--8000 throughout; scaling behaviour untested}
+\item Training-set sizes run from $n=300$ to $n=4800$. The criterion of
+\cref{sec:orth} was verified across that whole range and the model spread falls with
+$n$, but behaviour at the $10^5$--$10^6$ scale where sparse approximations are most
+needed is untested, and we would not extrapolate the noise-model results there given
+that one of them already reversed within the range we did test.
 \end{itemize}
 
 \section{Related work}
-\todo{sparse GPs; heteroscedastic GPs \citep{goldberg1997, kersting2007}; calibration
-in regression \citep{kuleshov2018}; locally adaptive and mixture-of-experts GPs, which
-are the closest prior art and must be distinguished carefully}
+\label{sec:related}
+
+\paragraph{Sparse GP approximation.} Inducing-point and spectral methods
+\citep{quinonero2005, titsias2009, rahimi2007, williams2001, smola2000} reduce the
+$O(n^3)$ cost by replacing the kernel matrix with a low-rank surrogate. This
+literature is overwhelmingly concerned with the \emph{latent} term of \cref{eq:var};
+our observation is that predictive \emph{uncertainty} is usually dominated by the
+other term, which is why methods that differ substantially in approximation quality
+can be nearly indistinguishable in predictive standard deviation.
+
+\paragraph{Locally adaptive and mixture-of-experts GPs.} The closest prior art
+partitions the input space and fits separate models per region
+\citep{rasmussen2002, tresp2000, deisenroth2015, gramacy2008}. Our results are not in
+tension with it, and the distinction matters. Those methods give each region its own
+\emph{kernel and noise hyperparameters}, so per-region predictive variance genuinely
+differs; the mechanism we identify is precisely why that is the right design. What we
+rule out is the weaker variant --- holding one global model and varying only
+\emph{approximation fidelity} by region --- which leaves the dominant term of
+\cref{eq:var} untouched. Treed GPs \citep{gramacy2008} additionally learn the
+partition, which our \cref{sec:noise} result on residual-variance scoring complements:
+we find the partition is recoverable when scored by the right quantity.
+
+\paragraph{Heteroscedastic GPs.} Input-dependent noise has been modelled by a second
+GP on log residuals \citep{goldberg1997}, by EM \citep{kersting2007}, and
+variationally \citep{lazarogredilla2011}. Our regional noise is a coarse, piecewise
+approximation to these, and \cref{sec:shrink} finds its value is modest and confined
+to proper scoring rules. \Cref{sec:adversarial} contributes a practical caveat for
+this literature: the advantage of any input-dependent noise model over a single
+parameter is strongly $n$-dependent, and on our datasets reverses sign near
+$n \approx 2500$, so comparisons at a single training-set size can reach opposite
+conclusions.
+
+\paragraph{Calibration in regression.} Interval-coverage calibration
+\citep{kuleshov2018} and proper scoring rules \citep{gneiting2007} measure different
+things, and \cref{sec:adversarial} shows they rank our methods differently in a
+systematic way: regional noise buys sharpness at the cost of coverage. We therefore
+report both throughout, and recommend the practice.
+
+\paragraph{Reproducibility and measurement validity.} \Cref{sec:hazard} belongs to a
+line of work showing that reported gains can originate in evaluation setup rather than
+method \citep{henderson2018, musgrave2020, lipton2019}. Our instance is unusual in
+being a silent, threshold-triggered approximation inside a trusted library rather than
+a protocol choice, which makes it invisible in code review.
 
 \section{Conclusion}
-Region-aware \emph{approximation} cannot improve calibration, because approximation
-fidelity and predictive uncertainty are orthogonal: a router can only choose among
-options that differ along the axis it is optimising, and sparse approximations of
-different fidelity do not. Redirecting the same regional machinery at the noise model
---- the term that does control predictive variance --- fails for a different reason:
-at the levels of input-dependent noise found in real data, the extra parameters do not
-pay for themselves. We therefore report a negative result for region-aware GP
-modelling in both of its natural forms, together with the mechanism for each failure.
+
+The gain available to a region-aware Gaussian process is bounded by how much its
+candidate models differ in predictive standard deviation, and that quantity is
+measurable in advance. Because sparse approximations alter only the latent term of the
+predictive variance while the shared noise term is untouched, the bound is usually
+tight and small: on our data the spread across four fidelities is $0.0017$ against a
+calibration error of $0.5$. The criterion is predictive in both directions --- it
+identifies the one dataset where an oracle router does gain, and the size of that gain
+--- and it holds from $n=600$ to $n=4800$, tightening as $n$ grows.
+
+The practical readings are that routing approximation fidelity by region is not worth
+building, that the same regional machinery pointed at the \emph{noise} model is worth
+a little and is best regularised by shrinkage, and that the partition such methods
+need is recoverable provided it is scored by residual variance rather than by
+uncertainty and sparsity.
+
 Separately, practitioners measuring GP calibration should verify that their inference
-path is exact; above a library default that appears nowhere in user code, ours was
-not.
+path is exact. Above a library default that appears nowhere in user code, ours was
+not, and every calibration number we computed before noticing was wrong by
+$3$--$9\times$.
 
 \paragraph{Reproducibility.} All code, data and results:
 \url{https://github.com/Srikarmk/Aurora-GP}. Every number above is regenerated by
