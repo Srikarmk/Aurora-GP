@@ -1,0 +1,27 @@
+Allocating approximation budget unevenly across the input space, routing "important"
+regions to high-fidelity approximations and the rest to cheap ones, is an appealing way
+to scale Gaussian processes. We give a quantitative criterion for when it can work, and
+show the criterion is rarely satisfied.
+
+The criterion follows from the predictive variance decomposition: sparse approximations
+alter only the latent term, leaving the shared noise term untouched. The gain available to
+any region-aware router is therefore bounded by the spread in predictive standard deviation
+across its candidate models, which is measurable before a router is built. On data whose
+regional structure is true by construction, that spread is at most 0.0017 against a
+calibration error of order 0.5. The criterion predicts both outcomes: where the spread is
+negligible, an oracle router given the true partition gains nothing (+0.0003 ECE); where it
+is larger (0.064), an oracle does gain, by the margin the spread permits. This holds from
+n=600 to n=4800.
+
+We contribute three further results. (i) A measurement hazard: an opt-in fast
+predictive-variance setting in a widely used GP library is inert below a training-set size
+threshold that never appears in user code, and above it perturbs predictive standard
+deviations by a median of about 100%, inflating measured ECE by a factor of three to nine.
+(ii) Region identification by local residual variance, recovering a known partition 96.9%
+of the time where uncertainty-and-sparsity scoring manages 41% against 33% chance. (iii)
+Shrinkage-regularised regional noise, whose empirical-Bayes form requires no tuning and is
+the only arm to improve CRPS at every sample size tested.
+
+We also report the research process: four of five explanatory mechanisms we proposed were
+falsified by their own predictions, while claims resting on direct measurement survived
+adversarial audit.
