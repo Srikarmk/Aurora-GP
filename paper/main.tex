@@ -584,11 +584,18 @@ quantities. Our own negative result reversed at $n=4000$.
 at most ${\sim}7$ (\cref{tab:screen}), and vary noise in steps rather than smoothly,
 which structurally favours a piecewise-constant noise model. Claims in
 \cref{sec:noise} rest on the real-data results, not the constructed ones.
-\item Our heteroscedastic baseline is re-run against an independent GPyTorch
+\item Our heteroscedastic baseline was re-run against an independent GPyTorch
 implementation (\texttt{src/hetero\_independent.py}) --- different linear algebra,
-optimiser and codebase. That tests the implementation, not the algorithm family: both
-are two-stage Goldberg-style constructions. A structurally different heteroscedastic
-GP, such as the variational model of \citet{lazarogredilla2011}, remains untested.
+optimiser and codebase, with out-of-fold residuals and exact inference. It reaches the
+same conclusion: the het-GP beats its own global baseline on $1$ of $6$ datasets on
+$\ece$, NLL and PIT-KS, and $2$ of $6$ on CRPS. The result is therefore not an
+artifact of our implementation. Two caveats bound what this establishes. It tests the
+implementation, not the algorithm family --- both are two-stage Goldberg-style
+constructions, and a structurally different model such as the variational
+heteroscedastic GP of \citet{lazarogredilla2011} remains untested. And it was run at
+$n_{\text{train}} \approx 1500$, inside the range where \cref{sec:adversarial} shows
+input-dependent noise is disadvantaged; it corroborates the implementation, not the
+general claim, which remains $n$-limited.
 \item Residual variance that varies with $x$ may reflect model bias rather than noise;
 we therefore use the term \emph{input-dependent residual variance}.
 \item Training-set sizes run from $n=300$ to $n=4800$. The criterion of
