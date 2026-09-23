@@ -36,6 +36,12 @@ it perturbs predictive standard deviations by a median of ${\sim}100\%$, inflati
 measured $\ece$ by $3$--$9\times$. Calibration results for exact GPs above this
 threshold may not describe the model being reported.
 
+We additionally report the research process itself (\cref{sec:process}): four of five
+mechanisms we proposed to explain our own observations were falsified by experiment,
+while the claims resting on direct measurement survived adversarial testing. Four
+separate headline numbers --- two in the work we audited, two of our own --- turned on
+how a baseline was configured rather than on the method under study.
+
 Finally we test the natural repair. Since predictive variance is dominated by the
 noise term, one might make \emph{that} regional instead. On constructed data this
 improves $\ece$ by up to $4.4\times$; on nine real datasets, with out-of-fold noise
@@ -73,9 +79,16 @@ favour routing.
 \item \textbf{A measurement hazard} (\cref{sec:hazard}): approximate predictive
 variance silently corrupts calibration metrics above a library-default threshold,
 with no signal in user code.
-\item \textbf{A tested repair that also fails} (\cref{sec:noise}): making the noise
-model regional helps only at unrealistic levels of input-dependent noise, and loses to
-a single global noise parameter on eight of nine real datasets.
+\item \textbf{A tested repair, and the limits of the result} (\cref{sec:noise}):
+making the noise model regional does not pay at realistic levels of input-dependent
+noise and at the sample sizes we tested, though an adversarial audit shows this
+particular conclusion reverses by $n=4000$ and holds on calibration metrics but not on
+proper scoring rules.
+\item \textbf{A record of what failed and what caught it} (\cref{sec:process}): four
+of the five explanatory mechanisms we proposed were falsified, four separate headline
+numbers turned on how a \emph{baseline} was configured, and three verification scripts
+reported success while failing to run. We distil these into a checklist for GP
+calibration studies.
 \end{enumerate}
 
 \section{Background}
@@ -444,6 +457,125 @@ ten of eleven datasets; the $\ece$ best-arm count moves from global~$9$~/~region
 to global~$8$~/~regional~$3$, the single flip being powerplant, whose margin is small
 ($0.0197$ vs $0.0218$). The heteroscedastic GP wins zero datasets on $\ece$ in both
 seed sets. The conclusion does not depend on the seeds.
+
+\section{Process: which claims failed, and what caught them}
+\label{sec:process}
+
+This project began as an attempt to \emph{demonstrate} region-aware approximation and
+became a negative result only after a sequence of claims --- most of them our own ---
+failed under test. We report that sequence, because the failure modes recur and
+because a reader deciding how much to trust \cref{sec:orth,sec:routing} should know
+which parts of this work were checked adversarially and which were merely not yet
+falsified.
+
+\subsection{Proposed mechanisms fail; direct measurements survive}
+
+\begin{table}[h]\centering
+\caption{Every explanatory mechanism we proposed, its falsifiable prediction, and its
+fate. Four of five died. The claims that survived adversarial testing are those
+resting on direct measurement rather than on a proposed cause.}
+\label{tab:mechanisms}
+\small
+\begin{tabular}{p{4.2cm}p{4.4cm}p{4.6cm}}
+\toprule
+proposed mechanism & prediction & outcome \\
+\midrule
+Approximation gap inflates predictive variance, offsetting overconfidence &
+$\sigma$ should shrink as rank grows &
+\textbf{Refuted.} $z$-dispersion \emph{falls} monotonically with rank ($3.34 \to 1.01$);
+low-rank models are more overconfident, not less \\
+\addlinespace
+Exact-GP miscalibration is an undertrained optimiser &
+more Adam iterations should fix it &
+\textbf{Refuted.} $1000$ iterations leave robot\_arm at ${\sim}0.27$; sarcos degrades \\
+\addlinespace
+It is hyperparameters fitted on a subsample &
+fitting on all $n$ should fix it &
+\textbf{Refuted.} $n_{\text{fit}}{=}4800$ still gives $0.0146$ vs $0.27$ \\
+\addlinespace
+Shrinkage helps by reducing estimation variance at small $n$ &
+selected $\lambda$ should fall as $n$ grows &
+\textbf{Refuted.} $\lambda = 0.27, 0.10, 0.18, 0.16, 0.22$; no trend \\
+\addlinespace
+Fidelity and predictive uncertainty are orthogonal because the shared noise term
+dominates \cref{eq:var} &
+models of differing fidelity should emit near-identical $\sigma$; routing gain should
+scale with their spread &
+\textbf{Survived.} Spread $\le 0.0017$ on \texttt{hetero\_extreme}; the one dataset
+with larger spread ($0.064$) is the one where an oracle router gains ($0.0021$);
+confirmed to $n{=}4800$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Four results that turned on baseline configuration}
+
+In each case a headline number was determined not by the method under study but by how
+its comparator was set up. Twice this favoured the proposed method; twice it favoured
+ours, once with the sign reversed.
+
+\begin{enumerate}
+\item \textbf{Lengthscale in the wrong space.} The median heuristic was computed on
+raw $X$ and applied to standardised $X$ --- wrong by $155{,}000\times$ on protein,
+where the baseline degenerated to a constant predictor ($\mathrm{RMSE} = 6.1346$
+against $\mathrm{std}(y) = 6.1182$, $R^2 = 0$). The original $+41.1\%$ headline was
+the distance to that model; corrected, it is $-9.9\%$.
+\item \textbf{Noise never fitted.} The approximations used a hardcoded
+$\sigma_n = 0.1$ while the exact GP fitted its noise by marginal likelihood. One arm
+was tuned and the others were not.
+\item \textbf{Approximate inference in the ``exact'' baseline} (\cref{sec:hazard}),
+which corrupted every calibration number above $n=800$ by $3$--$9\times$.
+\item \textbf{In-sample residuals, handicapping \emph{our} baseline.} Our first
+heteroscedastic-GP comparison estimated noise from in-sample residuals, which
+underestimate by $1.1$--$1.9\times$. Regional noise averages over groups so the bias
+cancels; the het-GP uses them pointwise and compounds them through EM. The het-GP lost
+on all nine datasets, and we came close to reporting it.
+\end{enumerate}
+
+The recurring shape is that a comparison is only as meaningful as the effort spent on
+the arm one is not advocating. We suggest reporting, for every arm, what was fitted,
+what was selected, and on which split --- a discipline that would have caught all four.
+
+\subsection{Verifications that passed without running}
+
+Three checks reported success while failing:
+
+\begin{itemize}
+\item An audit script printed \texttt{CLEAN: no selection on test labels} three times.
+Under \texttt{zsh} an unquoted array variable reaches \texttt{grep} as a single
+argument; the greps errored and a \texttt{|| echo} fallback reported the pass.
+\item A crashing script reported \texttt{EXIT=0}, because a pipeline's exit status is
+its last stage and the traceback had been piped to \texttt{tail}.
+\item \Cref{tab:orth}, the paper's central mechanism, was generated by an ad-hoc
+command that was never committed. Regenerating it from a script changed the numbers:
+the effect was stronger than reported on one dataset and the general claim as
+originally stated was wrong (\cref{sec:orth}).
+\end{itemize}
+
+A verification that cannot fail loudly is not a verification. We now require every
+reported number to be produced by a committed script reachable from
+\texttt{reproduce.sh}, which covers all $19$ scripts behind this paper.
+
+\subsection{A checklist for GP calibration studies}
+
+\begin{enumerate}
+\item Confirm the inference path is exact. Disable fast predictive-variance
+approximations and raise any Cholesky-size threshold above $n$; verify that results
+below the threshold are unchanged by the setting.
+\item Fit kernel hyperparameters in the space the kernel operates in, and verify a
+fitted lengthscale against the median pairwise distance of the \emph{transformed}
+inputs.
+\item Give every arm the same tuning budget, and state what was fitted and selected
+for each.
+\item Estimate any residual-derived quantity out-of-fold.
+\item Screen datasets for the property under study; do not assume it. A dataset named
+for a phenomenon may not exhibit it --- \texttt{synthetic\_heteroscedastic} here ranks
+below an ordinary robotics benchmark (\cref{tab:screen}).
+\item Report a proper scoring rule alongside any binned calibration metric; the two
+can disagree systematically (\cref{sec:adversarial}).
+\item Sweep $n$ before concluding anything about a method that estimates per-region
+quantities. Our own negative result reversed at $n=4000$.
+\end{enumerate}
 
 \section{Threats to validity}
 \label{sec:threats}
