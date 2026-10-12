@@ -10,4 +10,6 @@ __pycache__
 .env.production
 .env.local
 .env.development.local
-.env.test.local
+.env.test.local.DS_Store
+**/.DS_Store
+paper/arxiv_submission/
