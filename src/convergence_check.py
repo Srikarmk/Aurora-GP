@@ -29,6 +29,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 
 from sklearn.model_selection import train_test_split
 from fair_benchmark import m_ece, m_rmse, m_nll, MAX_N, quiet
+import routing_recheck                      # noqa: F401 -- exact predictive variance
 from gp_baseline import GaussianProcessBaseline
 
 ITERS = [50, 150, 400, 1000]
@@ -79,9 +80,9 @@ def main():
                   f"{np.mean(a['rmse']):7.4f}+/-{np.std(a['rmse'], ddof=1):7.4f} "
                   f"{np.mean(a['noise']):8.4f}", flush=True)
         print(flush=True)
-        json.dump(res, open(out_dir / 'convergence.json', 'w'), indent=2)
+        json.dump(res, open(out_dir / 'convergence_exact.json', 'w'), indent=2)
 
-    print("saved ->", out_dir / 'convergence.json', flush=True)
+    print("saved ->", out_dir / 'convergence_exact.json', flush=True)
 
 
 if __name__ == '__main__':

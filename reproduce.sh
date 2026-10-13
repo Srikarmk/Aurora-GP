@@ -25,14 +25,16 @@ $PY orthogonality.py
 
 echo "==> Heteroscedasticity screen across all datasets (paper Table 3)"
 $PY measure_hetero.py
+$PY measure_hetero_seeds.py
 
 echo "==> Inference corruption sweep (paper Table 1)"
 $PY inference_corruption.py
 $PY inference_report.py
 
-echo "==> Structured-data routing and noise studies (paper Tables 5, 6)"
+echo "==> Structured-data routing and noise studies, region identification"
 $PY structured_routing.py
 $PY noise_routing.py
+$PY hetero_baseline.py
 $PY hetero_fair.py
 
 echo "==> Routing headroom re-checked with exact GP inference"
@@ -59,8 +61,14 @@ $PY diff_seeds.py
 echo "==> Independent GPyTorch heteroscedastic baseline (paper Sec. 7)"
 $PY hetero_independent.py
 
+echo "==> Data and metric checks (ECE noise floor, duplicate rates)"
+$PY data_checks.py
+
 echo "==> Paper figures -> paper/figs/*.pdf"
 $PY make_figures.py
+
+echo "==> Paper tables -> paper/tables/*.tex"
+$PY paper_tables.py
 
 echo
 echo "Done. Numbers are in results/; figures in paper/figs/."

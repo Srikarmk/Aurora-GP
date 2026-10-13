@@ -1,27 +1,5 @@
-Allocating approximation budget unevenly across the input space, routing "important"
-regions to high-fidelity approximations and the rest to cheap ones, is an appealing way
-to scale Gaussian processes. We give a quantitative criterion for when it can work, and
-show the criterion is rarely satisfied.
+Region-aware Gaussian processes adapt the model to different parts of the input space. One appealing form allocates approximation budget unevenly, routing "important" regions to high-fidelity sparse approximations and the rest to cheap ones. We show this form cannot change the uncertainty a region receives, and that a second form, adapting the noise model by region, can.
 
-The criterion follows from the predictive variance decomposition: sparse approximations
-alter only the latent term, leaving the shared noise term untouched. The gain available to
-any region-aware router is therefore bounded by the spread in predictive standard deviation
-across its candidate models, measurable before a router is built. On data whose
-regional structure is true by construction, that spread is at most 0.0017 against a
-calibration error of order 0.5. The criterion predicts both outcomes: where the spread is
-negligible, an oracle router given the true partition gains nothing (+0.0003 ECE); where it
-is larger (0.064), routing gains, consistently across seeds, within the margin the
-spread permits. This holds from n=600 to n=4800.
+The reason is the predictive variance decomposition: sparse approximations alter only the latent term, while the noise term is shared. On four constructed datasets with known regional structure, models spanning a wide range of fidelity emit mean predictive standard deviations within 2% of one another in every region, while the true noise varies 50x across regions. An oracle router given the true generative partition gains nothing (+0.0003 ECE), and on five standard benchmarks importance routing is significantly worse than a random-routing control on two. Making the noise term input-dependent instead, with an unbiased out-of-fold noise estimate, pays: regional noise improves calibration significantly on five of eleven datasets and worsens it on none, and a heteroscedastic GP improves NLL on eight. The gains appear where measured residual variance is input-dependent and the training set is not tiny; the result replicates on disjoint seeds and survives five adversarial checks.
 
-We report three further results. (i) A measurement hazard: an opt-in fast
-predictive-variance setting in a widely used GP library is inert below a size threshold
-that never appears in user code, and above it perturbs predictive standard
-deviations by a median of about 100%, inflating measured ECE by a factor of three to ten at n=4000.
-(ii) Region identification by local residual variance, recovering a known partition 96.9%
-of the time against 41% for uncertainty-and-sparsity scoring and 33% chance. (iii)
-Shrinkage-regularised regional noise: its two variants are the only arms to improve CRPS at
-every sample size tested, and the empirical-Bayes form requires no tuning.
-
-We also report the research process: four of five explanatory mechanisms we proposed were
-falsified by their own predictions; claims resting on direct measurement survived
-adversarial audit.
+We also report a measurement hazard: a fast predictive-variance setting in a widely used GP library is inert below a training-set size threshold that never appears in user code, and above it perturbs predictive standard deviations by a median of about 100%, inflating measured ECE by a factor of three to ten at n=4000. Finally we report the research process: five of six mechanisms we proposed did not survive, and five headline numbers, including an earlier, opposite conclusion of this paper, turned on how a baseline or estimator was configured.

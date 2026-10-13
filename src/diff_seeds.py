@@ -11,10 +11,10 @@ the single flip is powerplant, whose global-vs-regional gap is small (0.0197 vs
 0.0218). The heteroscedastic GP wins zero datasets on ECE in BOTH seed sets.
 """
 import sys, json, numpy as np, warnings
-warnings.filterwarnings('ignore')
-sys.path.insert(0,'/Users/srikarmk/Programming/Aurora-GP/src')
 from pathlib import Path
-P=Path('/Users/srikarmk/Programming/Aurora-GP')
+warnings.filterwarnings('ignore')
+sys.path.insert(0, str(Path(__file__).parent))
+P = Path(__file__).parent.parent
 
 import hetero_fair as HF
 HF.SEEDS=tuple(range(10,20))                      # DISJOINT from the reported 0-9

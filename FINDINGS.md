@@ -1,4 +1,54 @@
-# Region-aware GPs: a negative result in both of its natural forms
+# Region-aware GPs: adapt the noise, not the approximation
+
+## Correction, 2026-10-13: the noise-model half of the negative result was an estimator bias
+
+A pre-submission audit of the code against the paper found two biases in the noise
+evidence shared by every noise-model experiment (`src/hetero_fair.py` and everything
+importing `oof_resid2`):
+
+1. **Regional noise double-counted latent variance.** The out-of-fold squared residual
+   has expectation sigma^2(x) + var_oof[f(x)]. It was used as the noise estimate and the
+   latent variance was then added again, making regional noise under-confident, most of
+   all at small n.
+2. **The het-GP took a geometric mean.** It smoothed log r^2 and exponentiated, which
+   for Gaussian residuals sits at exp(-1.27) = 0.28 of the noise variance.
+
+Both arms now use r^2_oof minus the fold model's latent variance (`oof_noise`). Rerun
+results, 10 seeds, 11 datasets (`src/hetero_fair_report.py`):
+
+| | global best | het-GP best | regional best |
+|---|---|---|---|
+| ECE, before | 9 | 0 | 2 |
+| ECE, corrected | 3 | 2 | 6 |
+| NLL, corrected | 2 | 9 | 0 |
+
+Regional noise is significantly better calibrated than global (Wilcoxon p<0.05) on 5
+datasets (sarcos, airfoil, calhousing, concrete, synthetic_heteroscedastic) and
+significantly worse on none; the het-GP is significantly better on NLL on 8. Seeds
+10-19 replicate (regional 5 better / 0 worse on ECE; het-GP 9 better on NLL).
+
+Consequences for claims below, all now withdrawn:
+- "Global noise wins 9 of 11" and "the het-GP wins none": reversed.
+- The sample-size reversal (regional loses below n~2500, wins above): an artifact. With
+  fixed validation/test sets and the corrected estimator (`src/adversarial_n.py`) the
+  mean gap favours regional noise at every n from 300 to 4000.
+- "Regional noise buys sharpness at the cost of calibration": regional intervals are now
+  narrower on 5 of 6 datasets and better calibrated on most metrics.
+- Shrinkage as a contribution: all input-dependent arms beat global CRPS by 0.4-1.3%;
+  shrinkage adds ~0.2% over raw regional, within one SE. The earlier Table 7 also
+  averaged CRPS across datasets in target units, so powerplant dominated it.
+- Region identification "96.9%": now 96.7% with out-of-fold evidence; the 81.9% case
+  (varying_smoothness) has homoscedastic noise, so it tracks model bias.
+
+What survives unchanged: the fast_pred_var hazard (all numbers reproduce), and
+orthogonality, now checked on all four constructed datasets (sigma spread <= 1.9% in
+every region). The "criterion" was ECE spread mislabelled as sigma spread, and the
+combined-dataset routing gain comes from region 0, not region 1; the paper now says so.
+
+The text below is the record as it stood before this correction.
+
+---
+
 
 This is the result the project actually supports, after the original evaluation was
 corrected (`AUDIT.md`) and re-run (`RESULTS_FAIR.md`).

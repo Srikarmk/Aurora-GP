@@ -16,92 +16,54 @@ Three documents carry the state:
 |---|---|
 | `AUDIT.md` | Every defect found in the original evaluation, with file:line and recomputed numbers |
 | `FINDINGS.md` | Chronological record of what was claimed, tested, and withdrawn |
-| `paper/main.tex` | The paper. Complete, no placeholders. Never compiled. |
+| `paper/main.tex` | The paper. Compiles cleanly with tectonic; result tables are generated into `paper/tables/` by `src/paper_tables.py`. |
+| `data/README.md` | Dataset sources, licences, checksums and known issues |
 
-## Current status: ready to submit, not yet compiled
+## Current status (2026-10-13)
 
-The paper is finished in content. **It has never been run through LaTeX**, because no
-TeX distribution was installed on the machine it was written on. The first compile
-will almost certainly need fixes.
+A full pre-submission audit (data, code, results, text) found that the noise-model
+comparison used a biased noise estimator. Fixing it reversed Section 6: input-dependent
+noise now beats a global noise parameter (see the correction at the top of
+`FINDINGS.md`). Every affected experiment was rerun and the paper rewritten around the
+corrected results; title subtitle, abstract, Sections 4, 6, 7 and the conclusion changed.
+Other fixes: Table 2 ran on all four constructed datasets, het ratios are now over 10
+seeds, dataset citations and a datasets table were added, figures were redrawn with
+seed spread, and Table 8's unsourced 0.0146 was removed.
 
-`paper/arxiv_abstract.txt` is a 1906-character plain-text abstract for the arXiv
-metadata field (the field caps at 1920 and cannot render `\cref` or `\emph`).
-
-## Pre-submission audit (2026-10-13)
-
-Every table was recomputed from `results/` and matches. The prose did not, in these
-places, all now corrected in `paper/main.tex` and `paper/arxiv_abstract.txt`:
-
-- "The spread falls with n" (abstract, Sec. 5.4, threats, conclusion). It falls only
-  from n=600 to 1200; then 1.5% -> 2.4% -> 3.6%. Now stated as "below 4% above n=600".
-- "ECE inflated by a factor of three to nine". At n=4000 the ratios are 2.96-10.16x.
-- Fig. 1 "onset is sharp on every dataset". Not on synthetic_heteroscedastic
-  (0.17% / 0.09% error at n=1000/1500, jump at 2500).
-- Table 4 (routing) bolded the wrong cells, and its caption called the true oracle an
-  upper bound although random and importance routing beat it on two datasets.
-- The combined-dataset gain was the learned oracle's (0.0021), presented as "an
-  oracle". True oracle gains 0.0010, importance routing 0.0022, all three seeds.
-- Sec. 6 said "nine datasets" (table has eleven) and "regional noise wins only on the
-  two constructed datasets". Its wins are synthetic_heteroscedastic and calhousing,
-  which is real and a tie (0.06926 vs 0.06932).
-- "Gains on constructed data appear only at het ratios of order 10^3". They appear
-  at 19 to 1557.
-- Abstract: EB "is the only arm to improve CRPS at every n". Shrunk does too.
-- Table 7 (shrinkage) averages over 5/4/3/3/3 datasets by n, not five.
-- Table 6 empty cells rendered as commas, a leftover of the em-dash removal, along with
-  about eight comma splices.
-- "attack E" was referenced but the attacks are never lettered.
-- Table 3 (screen) omitted five datasets used elsewhere; regenerated from
-  `results/hetero_screen.json`.
-- `reproduce.sh` did not run `hetero_independent.py` or `make_figures.py`, contrary to
-  the paper's reproducibility claim. Both added.
-
-Still open: Table 8 row 3 cites `0.0146` for robot_arm at n_fit=4800. That number
-appears in no committed script or result, and as written it reads as support for the
-hypothesis it says was refuted. The rank sweep gives 0.0168 at exact inference. Resolve
-before submitting.
+Build: `cd paper && tectonic -X compile main.tex` (tectonic via Homebrew).
+Environment: `.venv` built from `requirements.txt` on Python 3.13.
 
 ## Immediate next steps
 
-1. **Compile the paper.** Upload `paper/` to Overleaf, or install MacTeX
-   (`brew install --cask mactex-no-gui`), then
-   `cd paper && pdflatex main && bibtex main && pdflatex main && pdflatex main`.
-   Read it end to end. Check figure placement, table widths, and that every
-   `\cref` resolves rather than printing `??`.
-2. **Decide the author contact email.** `manda.k@northeastern.edu` expires in roughly
-   four months and arXiv v1 is permanent. Recommended: keep the institutional
-   affiliation and add a durable personal address.
-3. **Confirm Alekhya Bulusu has agreed to authorship** before submitting.
-4. **Submit to arXiv**: primary `cs.LG`, cross-list `stat.ML`. Register with the
-   `.edu` address to get auto-endorsement, then change the account email to a
-   permanent one before it expires.
+1. Read the compiled paper end to end, especially Sections 4 and 6, which are new.
+2. **Co-author sign-off.** The conclusion of Section 6 reversed; Alekhya Bulusu should
+   agree to the revised paper, not only to authorship.
+3. **Decide the author contact email.** `manda.k@northeastern.edu` expires in roughly
+   four months and arXiv v1 is permanent.
+4. Submit to arXiv: primary `cs.LG`, cross-list `stat.ML`. Upload `main.tex`,
+   `refs.bib`, `figs/`, `tables/` and the generated `main.bbl`.
+5. Optional: SARCOS and California housing have no explicit licence; consider replacing
+   the committed raw files with a fetch script.
 
 ## Open work, in descending value
 
-1. **Characterise the crossover.** The strongest open result. Regional noise loses to
-   a single global noise parameter below $n\approx2500$ and wins above it
-   (`results/adversarial_n.json`). Running the noise comparison at $n = 4000$ to
-   $20000$ would turn "our conclusion reverses" from a caveat into a result about when
-   input-dependent noise starts paying. Script to extend: `src/adversarial_n.py`.
-2. **A structurally different heteroscedastic baseline.** Both current het-GP
-   implementations (ours in numpy, and the GPyTorch one in
-   `src/hetero_independent.py`) are two-stage Goldberg-style constructions. A
-   variational heteroscedastic GP would test the algorithm rather than the
-   implementation. This matters: four separate headline numbers in this project
-   turned on baseline configuration.
-3. **Scaling.** Everything runs at $n \le 4800$. Sparse approximations matter most at
-   $10^5$ and above, and the orthogonality criterion should be checked there.
-4. **Explain the shrinkage result.** `src/shrinkage_noise.py` improves CRPS at every
-   sample size, but the mechanism we proposed (variance reduction at small $n$) was
-   falsified: the selected $\lambda$ shows no trend in $n$. The effect is real and
-   unexplained. Do not ship an explanation without an experiment isolating it.
-5. **Smoothly varying noise.** `src/structured_data.py` varies noise in steps at
-   region boundaries, which favours a piecewise-constant noise model. Regenerating
-   with smooth variation would remove a known bias in our own favour.
+1. **A structurally different heteroscedastic baseline.** Both het-GP implementations
+   (numpy kNN in `src/hetero_fair.py`, GPyTorch GP in `src/hetero_independent.py`) are
+   two-stage constructions, and they disagree on the two smallest datasets. A
+   variational heteroscedastic GP (Lazaro-Gredilla & Titsias 2011) would test the
+   algorithm rather than the implementation.
+2. **Larger n for the noise comparison.** The main comparison caps n_train at 1500;
+   the sweep reaches 4000 on three datasets. Extend `src/adversarial_n.py`.
+3. **Scaling.** Everything runs at n <= 4800. Sparse approximations matter most at
+   10^5 and above, and orthogonality should be checked there.
+4. **Smoothly varying noise.** `src/structured_data.py` varies noise in steps at
+   region boundaries, which favours a piecewise-constant noise model.
+5. **`src/noise_routing.py`** still uses in-sample residuals and the true partition. It
+   no longer backs any number in the paper; either port it to `oof_noise` or retire it.
 
 ## Environment
 
-- Python: `/usr/local/bin/python3` (3.13, arm64). The default `python3` on that
+- Python: `.venv` (3.13, arm64, from `requirements.txt`). Previously `/usr/local/bin/python3`; the default `python3` on that
   machine had no numpy. On a new machine, any Python with the pinned
   `requirements.txt` will do.
 - No LaTeX toolchain was installed. Overleaf was the intended path.
@@ -117,7 +79,7 @@ from the committed data. It runs 21 scripts, including
 
 ## Conventions
 
-- **Commits are authored as Srikarmk, with no Claude attribution.** Set
+- **Commits are authored as Srikarmk.** Set
   `git config user.name "Srikarmk"` and `user.email "srikarmks@gmail.com"` and do not
   add `Co-Authored-By` trailers.
 - Push to `main` directly.

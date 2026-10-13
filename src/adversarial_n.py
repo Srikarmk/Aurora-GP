@@ -20,21 +20,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from fair_benchmark import m_ece, m_nll
 from mechanism import fit_exact_hypers, exact_gp_predict
-from hetero_fair import oof_resid2, knn
+from hetero_fair import oof_noise, region_noise, knn, nested_split, N_VA, N_TE
 
 N_GRID = [300, 600, 1200, 2400, 4000]
-SEEDS = (0, 1, 2)
+SEEDS = (0, 1, 2, 3, 4)
 DATASETS = ['calhousing', 'powerplant', 'wine_white', 'airfoil']
 
 
 def run(X, y, n_train, seed):
-    rs = np.random.RandomState(seed)
-    need = n_train + 1200
-    if len(X) > need:
-        i = rs.choice(len(X), need, replace=False); X, y = X[i], y[i]
-    X_tr, X_rest, y_tr, y_rest = train_test_split(
-        X, y, train_size=n_train, random_state=seed)
-    X_va, X_te, y_va, y_te = train_test_split(X_rest, y_rest, test_size=.5, random_state=seed)
+    X_tr, X_va, X_te, y_tr, y_va, y_te = nested_split(X, y, n_train, seed)
     sx, sy = StandardScaler(), StandardScaler()
     Xs = sx.fit_transform(X_tr); ys = sy.fit_transform(y_tr.reshape(-1, 1)).ravel()
     Xva, Xte = sx.transform(X_va), sx.transform(X_te)
@@ -49,7 +43,7 @@ def run(X, y, n_train, seed):
     g_ece = m_ece(y_te, *back(mu_te, sd_te))
     g_nll = m_nll(y_te, *back(mu_te, sd_te))
 
-    r2 = oof_resid2(Xs, ys, ell, sf, np.full(len(ys), sn ** 2), seed=seed)
+    r2 = oof_noise(Xs, ys, ell, sf, np.full(len(ys), sn ** 2), seed=seed)
     best = (np.inf, None)
     for n_reg in (2, 3, 5, 10):
         for k in (20, 50, 100):
@@ -57,8 +51,7 @@ def run(X, y, n_train, seed):
             cuts = np.percentile(v_tr, np.linspace(0, 100, n_reg + 1)[1:-1])
             lab = lambda q: np.digitize(q, cuts)
             l_tr = lab(v_tr)
-            nz = {r: float(np.mean(r2[l_tr == r])) if (l_tr == r).sum() > 5 else sn ** 2
-                  for r in range(n_reg)}
+            nz = region_noise(r2, l_tr, n_reg, sn ** 2)
             f = lambda Q, lat: np.sqrt(lat + np.array(
                 [nz.get(int(r), sn ** 2) for r in lab(knn(Xs, r2, Q, k))]))
             v = m_nll(y_va, *back(mu_va, f(Xva, lat_va)))
@@ -67,7 +60,8 @@ def run(X, y, n_train, seed):
     r_ece = m_ece(y_te, *back(mu_te, best[1]))
     r_nll = m_nll(y_te, *back(mu_te, best[1]))
     return {'global_ece': g_ece, 'regional_ece': r_ece,
-            'global_nll': g_nll, 'regional_nll': r_nll, 'n_test': int(len(y_te))}
+            'global_nll': g_nll, 'regional_nll': r_nll, 'n_test': int(len(y_te)),
+            'n_val': int(len(y_va))}
 
 
 def main():
@@ -77,7 +71,7 @@ def main():
         X, y = z['X'], z['y']
         R[ds] = {}
         for n in N_GRID:
-            if len(X) < n + 400:
+            if len(X) < n + N_VA + N_TE:
                 continue
             R[ds][str(n)] = {str(s): run(X, y, n, s) for s in SEEDS}
         print(f"  {ds} done", flush=True)

@@ -32,6 +32,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import NearestNeighbors
 from fair_benchmark import m_ece, m_nll, m_rmse
 from mechanism import fit_exact_hypers, exact_gp_predict
+from hetero_fair import oof_noise, FLOOR
 from structured_data import GENERATORS
 
 K_NN = 40
@@ -66,16 +67,18 @@ def run(ds, seed):
     s_global = sd_te * yscale
     latent = np.maximum(s_global ** 2 - (sn * yscale) ** 2, 1e-12)
 
+    # out-of-fold noise evidence in original units (hetero_fair.oof_noise); in-sample
+    # residuals of a GP conditioned on the same points underestimate the noise
     ell, sf, sn2 = fit_exact_hypers(Xs, ys, seed)
-    mu_tr, _ = exact_gp_predict(Xs, ys, Xs, ell, sf, sn2)
-    p_tr = sy.inverse_transform(mu_tr.reshape(-1, 1)).ravel()
-    res2 = (y_tr - p_tr) ** 2
+    res2 = oof_noise(Xs, ys, ell, sf, np.full(len(ys), sn2 ** 2), seed=seed) * yscale ** 2
+    floor = FLOOR * (sn2 * yscale) ** 2
+    rnoise = lambda m: max(float(np.mean(res2[m])), floor)
 
     out = {'rmse': m_rmse(y_te, p)}
     out['global'] = {'ece': m_ece(y_te, p, s_global), 'nll': m_nll(y_te, p, s_global)}
 
     # --- established baseline: two-stage heteroscedastic GP ------------------
-    z = np.log(res2 + 1e-8)
+    z = np.log(np.maximum(local_resid_var(Xs, res2, Xs, 20), floor))
     sz = StandardScaler(); zs = sz.fit_transform(z.reshape(-1, 1)).ravel()
     mu_z, _, _ = _gp(Xs, zs, Xq, seed + 991)
     log_var = sz.inverse_transform(mu_z.reshape(-1, 1)).ravel()
@@ -85,8 +88,7 @@ def run(ds, seed):
     # --- regional noise, true partition --------------------------------------
     s_true = np.zeros(len(y_te))
     for r in np.unique(r_tr):
-        nr = np.std(y_tr[r_tr == r] - p_tr[r_tr == r])
-        s_true[r_te == r] = np.sqrt(latent[r_te == r] + nr ** 2)
+        s_true[r_te == r] = np.sqrt(latent[r_te == r] + rnoise(r_tr == r))
     out['regional_true'] = {'ece': m_ece(y_te, p, s_true), 'nll': m_nll(y_te, p, s_true)}
 
     # --- regional noise, NOISE-TARGETED partition (learned) ------------------
@@ -99,14 +101,17 @@ def run(ds, seed):
         m_tr = lab_tr == r; m_te = lab_te == r
         if m_te.sum() == 0:
             continue
-        nr = np.std(y_tr[m_tr] - p_tr[m_tr])
-        s_learn[m_te] = np.sqrt(latent[m_te] + nr ** 2)
+        s_learn[m_te] = np.sqrt(latent[m_te] + rnoise(m_tr))
     s_learn[s_learn == 0] = s_global[s_learn == 0]
     out['regional_learn'] = {'ece': m_ece(y_te, p, s_learn), 'nll': m_nll(y_te, p, s_learn)}
 
     best = max(np.mean(lab_te == perm[r_te]) for perm in
                [np.array(q) for q in [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]]])
     out['partition_recovery'] = float(best)
+    # chance for these label proportions: same labels, shuffled across test points
+    sh = np.random.RandomState(seed).permutation(lab_te)
+    out['partition_chance'] = float(max(np.mean(sh == perm[r_te]) for perm in
+        [np.array(q) for q in [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]]]))
     return out
 
 

@@ -27,10 +27,10 @@ from sklearn.preprocessing import StandardScaler
 from fair_benchmark import m_ece, m_nll
 from adversarial import crps_gauss, pit_ks
 from mechanism import fit_exact_hypers, exact_gp_predict
-from hetero_fair import oof_resid2, knn
+from hetero_fair import knn, FLOOR
 
 CAP = 2500
-SEEDS = (0, 1, 2)
+SEEDS = (0, 1, 2, 3, 4)
 EXACT = dict(covar_root_decomposition=False, log_prob=False, solves=False)
 
 
@@ -54,10 +54,11 @@ def _fit_gpytorch(X, y, n_iter=120, seed=0):
     model.train(); lik.train()
     opt = torch.optim.Adam(model.parameters(), lr=0.1)
     mll = gpytorch.mlls.ExactMarginalLogLikelihood(lik, model)
-    for _ in range(n_iter):
-        opt.zero_grad()
-        loss = -mll(model(tx), ty)
-        loss.backward(); opt.step()
+    with gpytorch.settings.max_cholesky_size(100000), gpytorch.settings.fast_computations(**EXACT):
+        for _ in range(n_iter):
+            opt.zero_grad()
+            loss = -mll(model(tx), ty)
+            loss.backward(); opt.step()
     model.eval(); lik.eval()
     return model, lik
 
@@ -92,16 +93,19 @@ def run(X, y, seed):
     out['global_gpytorch'] = {'ece': m_ece(y_te, p, s), 'nll': m_nll(y_te, p, s),
                               'crps': crps_gauss(y_te, p, s), 'pit_ks': pit_ks(y_te, p, s)}
 
-    # stage 2: noise GP on out-of-fold log squared residuals (GPyTorch)
-    oof = np.zeros(len(ys))
+    # stage 2: noise GP (GPyTorch) on the log of locally averaged out-of-fold noise
+    # evidence, i.e. squared residual minus the fold model's latent variance. Taking
+    # the log of single squared residuals instead gives a geometric mean, ~0.28x low.
+    noise_lat = float(l1.noise.item())
+    e = np.zeros(len(ys))
     for tr, te in KFold(5, shuffle=True, random_state=seed).split(Xs):
         mk, lk = _fit_gpytorch(Xs[tr], ys[tr], n_iter=60, seed=seed)
-        oof[te] = _pred(mk, lk, Xs[te])[0]
-    z = np.log((ys - oof) ** 2 + 1e-8)
+        m, v = _pred(mk, lk, Xs[te])
+        e[te] = (ys[te] - m) ** 2 - (v - float(lk.noise.item()))
+    z = np.log(np.maximum(knn(Xs, e, Xs, 20), FLOOR * noise_lat))
     sz = StandardScaler(); zs = sz.fit_transform(z.reshape(-1, 1)).ravel()
     m2, l2 = _fit_gpytorch(Xs, zs, seed=seed + 7)
 
-    noise_lat = float(l1.noise.item())
     lat_te = np.maximum(var_te - noise_lat, 1e-12)
     for tag, Q in (('te', Xte),):
         mz, _ = _pred(m2, l2, Q)

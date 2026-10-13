@@ -49,13 +49,14 @@ def run(ds, seed):
         out[int(r)] = {
             'ece': {k: m_ece(y_te[m], P[k][0][m], P[k][1][m]) for k in ARMS},
             'mean_std': {k: float(P[k][1][m].mean()) for k in ARMS},
+            'rmse': {k: float(np.sqrt(np.mean((y_te[m] - P[k][0][m]) ** 2))) for k in ARMS},
             'n': int(m.sum()),
         }
     return out
 
 
 def main(seeds=(0, 1, 2)):
-    R = {ds: {str(s): run(ds, s) for s in seeds} for ds in ('hetero_extreme', 'combined')}
+    R = {ds: {str(s): run(ds, s) for s in seeds} for ds in GENERATORS}
     out = PROJECT_ROOT / 'results' / 'structured'
     out.mkdir(parents=True, exist_ok=True)
     json.dump(R, open(out / 'orthogonality.json', 'w'), indent=2)
@@ -73,7 +74,7 @@ def main(seeds=(0, 1, 2)):
             e = {k: np.mean([x[r]['ece'][k] for x in c]) for k in ARMS}
             s = {k: np.mean([x[r]['mean_std'][k] for x in c]) for k in ARMS}
             spread = max(e.values()) - min(e.values())
-            rng = f"{min(s.values()):.3f}-{max(s.values()):.3f}"
+            rng = f"{min(s.values()):.3f}-{max(s.values()):.3f} ({100 * (max(s.values()) - min(s.values())) / np.mean(list(s.values())):.2f}%)"
             print(f"{str(r):<8s}" + "".join(f"{e[k]:11.4f}" for k in ARMS)
                   + f"{spread:12.4f}{rng:>22s}")
         allsp = [max(np.mean([x[r]['ece'][k] for x in c]) for k in ARMS)

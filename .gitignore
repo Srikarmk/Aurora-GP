@@ -13,3 +13,4 @@ __pycache__
 .env.test.local.DS_Store
 **/.DS_Store
 paper/arxiv_submission/
+.venv/

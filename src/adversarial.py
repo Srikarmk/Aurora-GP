@@ -38,7 +38,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import NearestNeighbors
 from fair_benchmark import m_ece, m_nll
 from mechanism import fit_exact_hypers, exact_gp_predict
-from hetero_fair import oof_resid2, knn, gp_het
+from hetero_fair import oof_noise, region_noise, knn, gp_het
 
 CAP = 2500
 SEEDS = (0, 1, 2, 3, 4)
@@ -86,6 +86,7 @@ def run(X, y, seed):
 
     mu_te, sd_te = exact_gp_predict(Xs, ys, Xte, ell, sf, sn)
     res['global'] = battery(y_te, *back(mu_te, sd_te))
+    res['y_scale'] = float(sc)
 
     # --- attack D: global noise also selected on validation ------------------
     mu_va, sd_va = exact_gp_predict(Xs, ys, Xva, ell, sf, sn)
@@ -101,7 +102,7 @@ def run(X, y, seed):
     res['global_tuned_mult'] = best[1]
 
     # --- attack C: regional noise across a granularity sweep -----------------
-    r2 = oof_resid2(Xs, ys, ell, sf, np.full(len(ys), sn ** 2), seed=seed)
+    r2 = oof_noise(Xs, ys, ell, sf, np.full(len(ys), sn ** 2), seed=seed)
     best = (np.inf, None, None)
     for n_reg in REGION_GRID:
         for k in (20, 50, 100):
@@ -109,8 +110,7 @@ def run(X, y, seed):
             cuts = np.percentile(v_tr, np.linspace(0, 100, n_reg + 1)[1:-1])
             lab = lambda q: np.digitize(q, cuts)
             l_tr = lab(v_tr)
-            nz = {r: float(np.mean(r2[l_tr == r])) if (l_tr == r).sum() > 5 else sn ** 2
-                  for r in range(n_reg)}
+            nz = region_noise(r2, l_tr, n_reg, sn ** 2)
             g = lambda Q, lat: np.sqrt(lat + np.array(
                 [nz.get(int(r), sn ** 2) for r in lab(knn(Xs, r2, Q, k))]))
             v = m_nll(y_va, *back(mu_va, g(Xva, lat_va)))
@@ -128,8 +128,7 @@ def run(X, y, seed):
             cuts = np.percentile(v_tr, np.linspace(0, 100, n_reg + 1)[1:-1])
             lab = lambda q: np.digitize(q, cuts)
             l_tr = lab(v_tr)
-            nz = {r: float(np.mean(r2[l_tr == r])) if (l_tr == r).sum() > 5 else sn ** 2
-                  for r in range(n_reg)}
+            nz = region_noise(r2, l_tr, n_reg, sn ** 2)
             g = lambda Q, lat: np.sqrt(lat + np.array(
                 [nz.get(int(r), sn ** 2) for r in lab(knn(Xs, r2, Q, k))]))
             v = m_nll(y_va, *back(mu_va, g(Xva, lat_va)))

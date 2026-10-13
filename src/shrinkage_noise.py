@@ -17,7 +17,7 @@ the truth is intermediate. The interesting question is whether the selected lamb
 tracks n in the way the diagnosis predicts: strong shrinkage when data is scarce,
 weak when it is plentiful.
 
-Also reports an empirical-Bayes lambda per region, which needs no validation search:
+Also reports an empirical-Bayes lambda per region, which needs no search over lambda (n_reg and k are still selected on validation):
 
     lambda_r = (s_r^2 / n_r) / (s_r^2 / n_r + tau^2)
 
@@ -35,22 +35,17 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from fair_benchmark import m_ece, m_nll
 from mechanism import fit_exact_hypers, exact_gp_predict
-from hetero_fair import oof_resid2, knn
+from hetero_fair import oof_noise, knn, FLOOR, nested_split, N_VA, N_TE
 from adversarial import battery
 
 N_GRID = [300, 600, 1200, 2400, 4000]
-SEEDS = (0, 1, 2)
+SEEDS = (0, 1, 2, 3, 4)
 DATASETS = ['calhousing', 'powerplant', 'wine_white', 'airfoil', 'energy']
 LAMBDAS = [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 1.0]
 
 
 def run(X, y, n_train, seed):
-    rs = np.random.RandomState(seed)
-    need = n_train + 1200
-    if len(X) > need:
-        i = rs.choice(len(X), need, replace=False); X, y = X[i], y[i]
-    X_tr, X_rest, y_tr, y_rest = train_test_split(X, y, train_size=n_train, random_state=seed)
-    X_va, X_te, y_va, y_te = train_test_split(X_rest, y_rest, test_size=.5, random_state=seed)
+    X_tr, X_va, X_te, y_tr, y_va, y_te = nested_split(X, y, n_train, seed)
     sx, sy = StandardScaler(), StandardScaler()
     Xs = sx.fit_transform(X_tr); ys = sy.fit_transform(y_tr.reshape(-1, 1)).ravel()
     Xva, Xte = sx.transform(X_va), sx.transform(X_te)
@@ -62,8 +57,9 @@ def run(X, y, n_train, seed):
     mu_te, sd_te = exact_gp_predict(Xs, ys, Xte, ell, sf, sn)
     lat_va = np.maximum(sd_va ** 2 - sn ** 2, 1e-12)
     lat_te = np.maximum(sd_te ** 2 - sn ** 2, 1e-12)
-    r2 = oof_resid2(Xs, ys, ell, sf, np.full(len(ys), sn ** 2), seed=seed)
-    g_var = float(np.mean(r2))
+    r2 = oof_noise(Xs, ys, ell, sf, np.full(len(ys), sn ** 2), seed=seed)
+    g_var = sn ** 2          # the global arm's noise, so lambda = 1 is exactly global
+    floor = FLOOR * sn ** 2
 
     out = {'global': battery(y_te, *back(mu_te, sd_te))}
 
@@ -75,16 +71,19 @@ def run(X, y, n_train, seed):
         raw, cnt = {}, {}
         for r in range(n_reg):
             m = l_tr == r
-            raw[r] = float(np.mean(r2[m])) if m.sum() > 5 else g_var
+            raw[r] = max(float(np.mean(r2[m])), floor) if m.sum() > 5 else g_var
             cnt[r] = int(m.sum())
         if eb:
-            tau2 = max(np.var(list(raw.values())), 1e-12)
-            nz = {}
+            se = {}
             for r in range(n_reg):
                 m = l_tr == r
-                s2 = float(np.var(r2[m])) if m.sum() > 5 else 0.0
-                se = s2 / max(cnt[r], 1)
-                lr = se / (se + tau2)
+                se[r] = (float(np.var(r2[m])) if m.sum() > 5 else 0.0) / max(cnt[r], 1)
+            # method of moments: between-region variance net of sampling variance
+            tau2 = max(np.var(list(raw.values())) - np.mean(list(se.values())), 1e-12)
+            nz = {}
+            for r in range(n_reg):
+                se_r = se[r]
+                lr = se_r / (se_r + tau2)
                 nz[r] = lr * g_var + (1 - lr) * raw[r]
         else:
             nz = {r: lam * g_var + (1 - lam) * raw[r] for r in range(n_reg)}
@@ -115,6 +114,7 @@ def run(X, y, n_train, seed):
                 best = (v, f(Xte, lat_te), (n_reg, k))
     out['eb'] = battery(y_te, *back(mu_te, best[1]))
     out['eb_cfg'] = list(best[2])
+    out['y_scale'] = float(sc)
     return out
 
 
@@ -125,7 +125,7 @@ def main():
         X, y = z['X'], z['y']
         R[ds] = {}
         for n in N_GRID:
-            if len(X) < n + 400:
+            if len(X) < n + N_VA + N_TE:
                 continue
             R[ds][str(n)] = {str(s): run(X, y, n, s) for s in SEEDS}
         print(f"  {ds} done", flush=True)
