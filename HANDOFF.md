@@ -27,6 +27,40 @@ will almost certainly need fixes.
 `paper/arxiv_abstract.txt` is a 1906-character plain-text abstract for the arXiv
 metadata field (the field caps at 1920 and cannot render `\cref` or `\emph`).
 
+## Pre-submission audit (2026-10-13)
+
+Every table was recomputed from `results/` and matches. The prose did not, in these
+places, all now corrected in `paper/main.tex` and `paper/arxiv_abstract.txt`:
+
+- "The spread falls with n" (abstract, Sec. 5.4, threats, conclusion). It falls only
+  from n=600 to 1200; then 1.5% -> 2.4% -> 3.6%. Now stated as "below 4% above n=600".
+- "ECE inflated by a factor of three to nine". At n=4000 the ratios are 2.96-10.16x.
+- Fig. 1 "onset is sharp on every dataset". Not on synthetic_heteroscedastic
+  (0.17% / 0.09% error at n=1000/1500, jump at 2500).
+- Table 4 (routing) bolded the wrong cells, and its caption called the true oracle an
+  upper bound although random and importance routing beat it on two datasets.
+- The combined-dataset gain was the learned oracle's (0.0021), presented as "an
+  oracle". True oracle gains 0.0010, importance routing 0.0022, all three seeds.
+- Sec. 6 said "nine datasets" (table has eleven) and "regional noise wins only on the
+  two constructed datasets". Its wins are synthetic_heteroscedastic and calhousing,
+  which is real and a tie (0.06926 vs 0.06932).
+- "Gains on constructed data appear only at het ratios of order 10^3". They appear
+  at 19 to 1557.
+- Abstract: EB "is the only arm to improve CRPS at every n". Shrunk does too.
+- Table 7 (shrinkage) averages over 5/4/3/3/3 datasets by n, not five.
+- Table 6 empty cells rendered as commas, a leftover of the em-dash removal, along with
+  about eight comma splices.
+- "attack E" was referenced but the attacks are never lettered.
+- Table 3 (screen) omitted five datasets used elsewhere; regenerated from
+  `results/hetero_screen.json`.
+- `reproduce.sh` did not run `hetero_independent.py` or `make_figures.py`, contrary to
+  the paper's reproducibility claim. Both added.
+
+Still open: Table 8 row 3 cites `0.0146` for robot_arm at n_fit=4800. That number
+appears in no committed script or result, and as written it reads as support for the
+hypothesis it says was refuted. The rank sweep gives 0.0168 at exact inference. Resolve
+before submitting.
+
 ## Immediate next steps
 
 1. **Compile the paper.** Upload `paper/` to Overleaf, or install MacTeX
@@ -78,8 +112,8 @@ metadata field (the field caps at 1920 and cannot render `\cref` or `\emph`).
 ## Reproducing
 
 `./reproduce.sh` regenerates every number in `AUDIT.md`, `FINDINGS.md` and the paper
-from the committed data. It runs 20 scripts and takes a few hours. Figures come from
-`src/make_figures.py`, which reads `results/` and writes `paper/figs/*.pdf`.
+from the committed data. It runs 21 scripts, including
+`src/make_figures.py` (writes `paper/figs/*.pdf`), and takes a few hours.
 
 ## Conventions
 

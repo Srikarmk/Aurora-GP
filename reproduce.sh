@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Reproduce every number in RESULTS_FAIR.md and AUDIT.md from scratch.
-# Runtime: ~15 min for the fair benchmark, ~60-90 min for the mechanism study.
+# Reproduce every number in AUDIT.md, FINDINGS.md and paper/main.tex from scratch,
+# then regenerate paper/figs. Runtime: a few hours in total.
 set -euo pipefail
 cd "$(dirname "$0")/src"
 PY="${PYTHON:-python3}"
@@ -56,5 +56,11 @@ $PY routing_largen.py
 echo "==> Diff test: same protocol on disjoint seeds 10-19"
 $PY diff_seeds.py
 
+echo "==> Independent GPyTorch heteroscedastic baseline (paper Sec. 7)"
+$PY hetero_independent.py
+
+echo "==> Paper figures -> paper/figs/*.pdf"
+$PY make_figures.py
+
 echo
-echo "Done. See RESULTS_FAIR.md, results/fair/report.txt, results/mechanism/report.txt"
+echo "Done. Numbers are in results/; figures in paper/figs/."
