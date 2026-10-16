@@ -661,8 +661,9 @@ raw $X$ and applied to standardised $X$, wrong by $155{,}000\times$ on protein,
 where the baseline degenerated to a constant predictor ($\mathrm{RMSE} = 6.1346$
 against $\mathrm{std}(y) = 6.1182$, $R^2 = 0$). The original $+41.1\%$ headline was
 measured against these broken baselines; with scale-correct lengthscales, fitted
-noise and exact inference, the method without an exact-GP tier is $-9.9\%$ against
-uniform Nystr\"om ($+4.5\%$ with one; \texttt{results/fair\_exact}).
+noise and exact inference, the method without an exact-GP tier is about $-9\%$
+against uniform Nystr\"om ($-9.9\%$ and $-9.2\%$ in two runs), and with one between
+$+4.5\%$ and $+8.1\%$ (\texttt{results/fair\_exact}; its GPyTorch fits vary between runs).
 \item \textbf{Noise never fitted.} The approximations used a hardcoded
 $\sigma_n = 0.1$ while the exact GP fitted its noise by marginal likelihood. One arm
 was tuned and the others were not.
