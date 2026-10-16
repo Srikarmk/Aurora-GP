@@ -28,6 +28,12 @@ A statistical review of the code and a second claim-by-claim check found:
    on airfoil, sarcos, calhousing.
 6. **Het ratio needs a null** (`src/measure_hetero_null.py`): its permutation null is
    1.8-4.1, not 1.
+7. **GPyTorch results are not bit-reproducible.** Three runs of the hazard experiment
+   (committed 2026-10-13, a full `reproduce.sh` rerun in a clean clone, and the
+   cache-fixed run): median sigma error above n=800 101.98 / 100.31 / 101.92%; max at or
+   below 800 0.0018% in all; LOVE-off median 5.00 / 4.80 / 5.62%; ECE ratio at n=4000
+   2.96-10.16 / 2.90-9.99 / 2.92-10.01. Single cells vary more (synthetic n=2500:
+   183 / 107 / 145%; exact ECE up to 0.006). numpy-based results reproduce bit-for-bit.
 
 ---
 

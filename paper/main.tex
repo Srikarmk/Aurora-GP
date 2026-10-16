@@ -150,7 +150,7 @@ $0.0018\%$. Generated from \texttt{results/inference/corruption.json}.}
 inference, as a function of training set size, with the range over three seeds. The
 error is below $0.002\%$ at and below the library's default Cholesky threshold. Above
 it, it appears at once on robot\_arm and sarcos, grows steadily on protein, and on
-synthetic\_heteroscedastic stays below $0.06\%$ on every seed until $n=2500$; concrete
+synthetic\_heteroscedastic stays below $0.6\%$ on every seed until $n=2500$; concrete
 has only 1030 points and does not extend above the threshold.}
 \label{fig:corruption}
 \end{figure}
@@ -164,6 +164,10 @@ alone reduces the median to $5.62\%$ but leaves the error of the iterative solve
 to $38\%$ (sarcos, $n=1000$). The approximation is therefore silently inert on small
 data and silently severe on large data, with no change in user code, and the setting
 that controls it is the Cholesky threshold rather than the flag that names it.
+GPyTorch's fits are not bit-reproducible across runs: in two further independent runs
+of this experiment the median error above the threshold was $100.3\%$ and $102.0\%$, the
+maximum at or below it $0.0018\%$, and the $\ece$ ratio at $n=4000$ ranged from $2.9$ to
+$10.2$; individual cells vary more (\texttt{FINDINGS.md}).
 
 \paragraph{Implication.} Reported $\ece$ or NLL for ``exact'' GPs trained above
 $n=800$ in this library may describe an approximation. Raising the Cholesky threshold
