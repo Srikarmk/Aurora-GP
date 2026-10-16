@@ -121,7 +121,8 @@ GPyTorch~\citep{gardner2018} provides \texttt{fast\_pred\_var()}, an implementat
 LOVE~\citep{pleiss2018} that approximates the predictive covariance, and separately
 falls back from Cholesky to iterative solves when the training set exceeds
 \texttt{max\_cholesky\_size} (default $800$). We fit one model per cell and vary
-\emph{only} the inference path.
+\emph{only} the inference path. All measurements use GPyTorch 1.15.2 with
+linear\_operator 0.6.1.
 
 \begin{table}[h]\centering
 \caption{Same fitted model; only the inference path varies. Error is the median over
