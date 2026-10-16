@@ -23,11 +23,12 @@ $PY convergence_check.py
 echo "==> Orthogonality: fidelity vs predictive uncertainty (paper Table 2)"
 $PY orthogonality.py
 
-echo "==> Heteroscedasticity screen across all datasets (paper Table 3)"
+echo "==> Heteroscedasticity screen across all datasets (paper Table 4)"
 $PY measure_hetero.py
 $PY measure_hetero_seeds.py
+$PY measure_hetero_null.py
 
-echo "==> Inference corruption sweep (paper Table 1)"
+echo "==> Inference corruption sweep (paper Table 1, Fig. 1)"
 $PY inference_corruption.py
 $PY inference_report.py
 
@@ -60,6 +61,10 @@ $PY diff_seeds.py
 
 echo "==> Independent GPyTorch heteroscedastic baseline (paper Sec. 7)"
 $PY hetero_independent.py
+
+echo "==> Significance with multiple-comparison correction; controls"
+$PY significance.py
+$PY noise_controls.py
 
 echo "==> Data and metric checks (ECE noise floor, duplicate rates)"
 $PY data_checks.py

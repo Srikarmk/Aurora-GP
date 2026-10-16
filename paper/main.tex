@@ -22,22 +22,26 @@ Region-Aware Gaussian Processes Should Adapt the Noise, Not the Approximation}
 Region-aware Gaussian processes adapt the model to different parts of the input
 space. One appealing form allocates approximation budget unevenly, routing
 ``important'' regions to high-fidelity sparse approximations and the rest to cheap
-ones. We show this form cannot change the uncertainty a region receives, and that a
-second form, adapting the noise model by region, can.
+ones. We find that, for the approximations we test (random Fourier features and
+Nystr\"om, each with its own homoscedastic noise), this form barely changes the
+uncertainty a region receives, and that a second form, adapting the noise model by
+region, does change it.
 
-The reason is the predictive variance decomposition: sparse approximations alter only
-the latent term, while the noise term is shared. On four constructed datasets with
-known regional structure, models spanning a wide range of fidelity emit mean
-predictive standard deviations within $2\%$ of one another in every region, while
-the true noise varies $50\times$ across regions. An oracle router given the true
-generative partition gains nothing ($+0.0003$ ECE), and on five standard benchmarks
-importance routing is significantly worse than a random-routing control on two. Making the noise term
-input-dependent instead, with an unbiased out-of-fold noise estimate, pays: regional
-noise improves calibration significantly on five of eleven datasets and worsens it on
-none, and a heteroscedastic GP improves NLL on eight. The gains appear where measured
-residual variance is input-dependent and the training set is not tiny; the result
-replicates on disjoint seeds and survives five adversarial checks, including a sweep
-over training-set size.
+The reason is the predictive variance decomposition: these approximations alter only
+the latent term, while the noise term, fitted separately by each model, comes out
+nearly the same. Varying Nystr\"om rank on five benchmarks changes test RMSE by up to
+$155\%$ but mean predictive standard deviation by at most $12\%$; on four constructed
+datasets, four models' per-region predictive standard deviations agree within $3\%$ in
+every region and seed while the true noise varies $50\times$. An oracle router given
+the true generative partition gains nothing on average ($+0.0003$ ECE). Making the noise
+term input-dependent instead, with a latent-variance-corrected out-of-fold noise
+estimate, pays on the larger datasets with clearly input-dependent residual variance:
+after Holm correction regional noise improves ECE on the same three datasets in both
+of two disjoint sets of ten splits (four in the second set, five when pooled) and
+worsens it on none, though on the
+smallest dataset it worsens NLL and CRPS; a heteroscedastic GP improves NLL on seven
+to nine. The result survives six adversarial checks, including recalibrating the
+global baseline and a sweep over training-set size.
 
 We also report a measurement hazard: an opt-in fast predictive-variance setting in a
 widely used GP library is inert below a training-set size threshold that never
@@ -60,29 +64,32 @@ are sparsely sampled, or where the model is uncertain, might warrant a more fait
 approximation than regions that are dense and easy.
 
 We call this \emph{region-aware approximation}. The premise is appealing and the
-mechanism is intuitive. This paper shows the mechanism cannot deliver on the premise,
-for a reason that does not depend on the particular partitioning criterion, the
-particular approximations, or the quality of the implementation: approximation
-fidelity and predictive uncertainty are nearly orthogonal. The same reason points to
-what does work. The term of the predictive variance that can differ by region is the
-noise, and adapting it by region improves calibration where the data warrant it.
+mechanism is intuitive. This paper shows the mechanism does not deliver on the
+premise, for a reason that does not depend on the partitioning criterion and holds for
+every homoscedastic approximation we tested: approximation fidelity and predictive
+uncertainty are nearly orthogonal. The same reason points to what does work. The term
+of the predictive variance that can differ by region is the noise, and adapting it by
+region improves calibration where the data warrant it.
 
 \paragraph{Contributions.}
 \begin{enumerate}
-\item \textbf{Fidelity and uncertainty are orthogonal} (\cref{sec:orth,sec:routing}).
-Models of very different approximation quality emit predictive standard deviations
-within $2\%$ of one another in every region of our four constructed datasets, so routing among them cannot
-change a region's uncertainty; oracle routing gains nothing, and the importance
-criterion of the method we audited is significantly worse than random routing on two
-of five benchmarks.
-\item \textbf{Input-dependent noise pays where a screen says it should}
-(\cref{sec:noise}). With an unbiased out-of-fold noise estimate, regional noise and a
-regional noise beats a single global noise parameter on $\ece$ wherever measured
-residual variance is input-dependent and there is enough data to estimate it, robustly
-across seeds, metrics, region counts and training-set sizes; a two-stage
-heteroscedastic GP improves NLL on eight of eleven datasets.
+\item \textbf{Fidelity and uncertainty are nearly orthogonal}
+(\cref{sec:orth,sec:routing}). Changing Nystr\"om rank moves accuracy far more than
+predictive uncertainty, and models of nominally different fidelity emit per-region
+predictive standard deviations within $3\%$ of one another on our constructed
+datasets, so routing among them barely changes a region's uncertainty; oracle routing
+gains nothing on average, and the importance criterion of the method we audited is
+significantly worse than random routing on two of five benchmarks.
+\item \textbf{Input-dependent noise pays on the larger datasets with clearly
+input-dependent residual variance} (\cref{sec:noise}). With a latent-variance-corrected
+out-of-fold noise estimate, regional noise beats a single global noise parameter on
+$\ece$ on airfoil, sarcos and calhousing in both seed sets after Holm correction and
+under a resampling-corrected test, and survives global recalibration (uncorrected) and,
+where tested, a sweep over training-set size; a two-stage heteroscedastic GP improves
+NLL on most datasets.
 \item \textbf{A measurement hazard} (\cref{sec:hazard}) that silently corrupts
-calibration metrics for ``exact'' GPs above a library default, by up to a factor of ten.
+calibration metrics for ``exact'' GPs above a library default, by up to a factor of
+ten, and is controlled by a setting other than the one that names it.
 \item \textbf{A record of what failed and what caught it} (\cref{sec:process}),
 including a reversal of this paper's own earlier conclusion, distilled into a
 checklist for GP calibration studies.
@@ -96,11 +103,13 @@ $y = f(x) + \varepsilon$, $\varepsilon \sim \mathcal{N}(0,\sigma_n^2)$, a GP pri
 $f \sim \mathcal{GP}(0,k)$ yields a predictive distribution at $x_*$ with variance
 \begin{equation}
 \label{eq:var}
-\mathbb{V}[y_*] \;=\; \underbrace{k(x_*,x_*) - k_*^\top (K+\sigma_n^2 I)^{-1} k_*}_{\text{latent, approximation-dependent}} \;+\; \underbrace{\sigma_n^2}_{\text{shared}}.
+\mathbb{V}[y_*] \;=\; \underbrace{k(x_*,x_*) - k_*^\top (K+\sigma_n^2 I)^{-1} k_*}_{\text{latent, approximation-dependent}} \;+\; \underbrace{\sigma_n^2}_{\text{input-independent}}.
 \end{equation}
 Random Fourier Features~\citep{rahimi2007} and Nystr\"om / subset-of-regressors
-\citep{williams2001, smola2000} replace the first term with a rank-$m$ surrogate.
-Crucially, they leave the second term untouched. \Cref{sec:orth} shows this is what
+\citep{williams2001, smola2000} replace the first term with a rank-$m$ surrogate and
+keep the second a single constant. (FITC~\citep{snelson2006} and
+PITC~\citep{quinonero2005} are an exception: their (block-)diagonal correction acts as
+input-dependent noise.) \Cref{sec:orth} shows this is what
 dooms region-aware approximation.
 
 \paragraph{Calibration metrics.} For regression we use the expected calibration error
@@ -121,113 +130,137 @@ GPyTorch~\citep{gardner2018} provides \texttt{fast\_pred\_var()}, an implementat
 LOVE~\citep{pleiss2018} that approximates the predictive covariance, and separately
 falls back from Cholesky to iterative solves when the training set exceeds
 \texttt{max\_cholesky\_size} (default $800$). We fit one model per cell and vary
-\emph{only} the inference path. All measurements use GPyTorch 1.15.2 with
+\emph{only} the inference path, clearing the model's prediction cache before each path:
+GPyTorch caches the predictive covariance on first use, and a later call with
+different settings silently reuses it. All measurements use GPyTorch 1.15.2 with
 linear\_operator 0.6.1.
 
 \begin{table}[h]\centering
 \caption{Same fitted model; only the inference path varies. Error is the median over
 test points of $|\sigma_{\text{mode}} - \sigma_{\text{exact}}|/\sigma_{\text{exact}}$,
-averaged over three seeds.
-Onset is exact: over $20$ cells with $n\le800$ the maximum error is $0.0018\%$; over
-$16$ cells with $n>800$ the minimum is $0.089\%$.}
+averaged over three seeds. Over $20$ cells with $n\le800$ the maximum error is
+$0.0018\%$. Generated from \texttt{results/inference/corruption.json}.}
 \label{tab:hazard}
-\begin{tabular}{lrrrr}
-\toprule
-dataset & $n_{\text{train}}$ & $\ece$ default & $\ece$ exact & median $\sigma$ error \\
-\midrule
-concrete & 800 & 0.0434 & 0.0434 & \phantom{00}0.00\% \\
-protein & 4000 & 0.1084 & 0.0367 & \phantom{0}33.44\% \\
-robot\_arm & 4000 & 0.2599 & 0.0824 & 199.22\% \\
-sarcos & 4000 & 0.3068 & 0.0302 & 213.62\% \\
-synthetic & 4000 & 0.4209 & 0.0654 & 559.12\% \\
-\bottomrule
-\end{tabular}
+\input{tables/hazard.tex}
 \end{table}
 
 \begin{figure}[t]\centering
 \includegraphics[width=0.52\textwidth]{figs/corruption.pdf}
 \caption{Median relative error in the predictive standard deviation against exact
 inference, as a function of training set size, with the range over three seeds. The
-error is below $0.002\%$ at and below the library's default Cholesky threshold and
-appears immediately above it. Onset is sharp on three of the four datasets that
-extend above the threshold (concrete has only 1030 points); on
-synthetic\_heteroscedastic the seed-mean error stays below $0.2\%$ (single seeds up to
-$0.5\%$) until $n=2500$. Magnitude is dataset dependent.}
+error is below $0.002\%$ at and below the library's default Cholesky threshold. Above
+it, it appears at once on robot\_arm and sarcos, grows steadily on protein, and on
+synthetic\_heteroscedastic stays below $0.06\%$ on every seed until $n=2500$; concrete
+has only 1030 points and does not extend above the threshold.}
 \label{fig:corruption}
 \end{figure}
 
-\Cref{fig:corruption} shows the onset is sharp rather than gradual. A four-way
-decomposition isolates the cause. Raising \texttt{max\_cholesky\_size}
-alone leaves the error unchanged ($101.98\%$ median across cells with $n>800$);
-disabling \texttt{fast\_pred\_var()} alone reduces it to $5.00\%$. The threshold
-matters because LOVE is a \emph{no-op} below it: the approximation is silently inert
-on small data and silently severe on large data, with no change in user code. The
-iterative-solve fallback is not exact either: with LOVE off it still perturbs $\sigma$
-by up to $38\%$ (sarcos, $n=1000$), so both settings must be changed.
+A four-way decomposition isolates the cause. With the default settings the median
+error in $\sigma$ across the $16$ cells with $n>800$ is $101.92\%$. Raising
+\texttt{max\_cholesky\_size} above $n$ alone removes it ($0.00\%$; at most $0.01\%$ in
+any cell), because LOVE then builds its low-rank factorisation from a Cholesky
+decomposition rather than Lanczos iterations. Disabling \texttt{fast\_pred\_var()}
+alone reduces the median to $5.62\%$ but leaves the error of the iterative solves, up
+to $38\%$ (sarcos, $n=1000$). The approximation is therefore silently inert on small
+data and silently severe on large data, with no change in user code, and the setting
+that controls it is the Cholesky threshold rather than the flag that names it.
 
 \paragraph{Implication.} Reported $\ece$ or NLL for ``exact'' GPs trained above
-$n=800$ in this library may describe an approximation. We recommend that calibration
-studies disable fast predictive variance and raise the Cholesky threshold above $n$,
-and report having done so.
+$n=800$ in this library may describe an approximation. Raising the Cholesky threshold
+above $n$ suffices for the predictive variance; we recommend that calibration studies
+also disable fast predictive variance, and report both settings.
 
-\section{Fidelity and uncertainty are orthogonal}
+\section{Fidelity and uncertainty are nearly orthogonal}
 \label{sec:orth}
 
 \Cref{eq:var} suggests that if $\sigma_n^2$ dominates, then changing the rank of the
 approximation, which affects only the first term, barely moves the predictive
-standard deviation. We verify this directly on four constructed datasets with known
-regional structure, including \texttt{hetero\_extreme}, whose noise standard deviation
-varies $50\times$ across three regions by construction. Each model fits its own
-hyperparameters, including $\sigma_n$, by its own marginal likelihood.
+standard deviation. We test this in two ways: by varying fidelity over a wide range on
+real data with everything else fixed, and by measuring, region by region, how much the
+predictive uncertainty of differently approximated models differs on data with known
+regional structure.
+
+\paragraph{Accuracy moves; uncertainty does not.} \Cref{tab:ranksweep} varies only the
+Nystr\"om rank, from $25$ to $1600$ ($400$ on concrete), with kernel and noise
+hyperparameters fitted once by exact marginal likelihood and shared by every rank
+(\texttt{src/mechanism.py}). Over this range the lowest-rank test RMSE is
+$21$--$155\%$ above the highest-rank one, while mean predictive standard deviation
+differs by $0$--$12\%$. Low-rank models are less accurate but not correspondingly less
+certain; their $z$-scores are over-dispersed (\cref{tab:mechanisms}, first row).
 
 \begin{table}[h]\centering
-\caption{Per-region $\ece$ of four models spanning a wide range of approximation
-fidelity, evaluated at the same inputs, three seeds. \emph{ECE spread} is the range
-of the four $\ece$ values; \emph{$\sigma$ spread} is the range of the four mean
-predictive standard deviations, relative to their mean. On \texttt{hetero\_extreme}
-the true noise standard deviation runs from $0.020$ to $1.000$ across regions while
-every model's mean predictive standard deviation stays in $[0.575,0.578]$. Generated by
-\texttt{src/orthogonality.py} and \texttt{src/paper\_tables.py}.}
+\caption{Nystr\"om rank varied with hyperparameters held fixed, five seeds. Changes are
+relative to the highest rank. Generated from \texttt{results/mechanism/rank\_sweep.json}.}
+\label{tab:ranksweep}
+\small
+\input{tables/ranksweep.tex}
+\end{table}
+
+\paragraph{Region by region.} We fit four models, RFF with $1000$ features, Nystr\"om
+with $500$ and $1500$ landmarks, and an exact GP, to four constructed datasets with
+known regional structure, including \texttt{hetero\_extreme}, whose noise standard
+deviation varies $50\times$ across three regions by construction. Each model fits its
+own hyperparameters, including $\sigma_n$, by its own marginal likelihood.
+
+\begin{table}[h]\centering
+\caption{Per-region $\ece$ of four models of nominally different fidelity, evaluated at
+the same inputs, mean over three seeds. \emph{ECE spread} and \emph{$\sigma$ spread}
+are computed within each seed (the range across the four models of the per-region
+$\ece$, and of the per-region mean predictive standard deviation relative to its mean),
+and the largest over seeds is shown. On \texttt{hetero\_extreme} the true noise
+standard deviation runs from $0.020$ to $1.000$ across regions while every model's
+mean predictive standard deviation lies in $[0.563, 0.592]$ in every region and seed.
+Generated by \texttt{src/orthogonality.py} and \texttt{src/paper\_tables.py}.}
 \label{tab:orth}
 \small\setlength{\tabcolsep}{4pt}
 \input{tables/orthogonality.tex}
 \end{table}
 
-Across all four datasets and all twelve regions, models whose approximation quality
-differs widely emit mean predictive standard deviations within $1.9\%$ of one another
-($0.37\%$ on \texttt{hetero\_extreme}). A region-aware router chooses, region by region,
-among these models. Along the axis that matters for calibration, predictive
-uncertainty, they are nearly indistinguishable, so routing cannot give a region the
-uncertainty it needs. This is the paper's central mechanism, and it follows from where
-predictive variance comes from rather than from any particular router.
+In every region of all four datasets and on every seed, the four models' mean
+predictive standard deviations lie within $2.7\%$ of one another. On these dense
+two-dimensional datasets the four models are all accurate (their per-region RMSE agrees within $3\%$ except in regions~0 and~1 of
+\texttt{combined} and the near-noiseless region~0 of \texttt{hetero\_extreme}, where
+absolute errors are below $0.04$), the latent term is small,
+and each model's fitted $\sigma_n$ settles on the pooled noise level; this is the
+regime in which \cref{eq:var} predicts orthogonality, and \cref{tab:ranksweep} shows it
+persists when accuracy differs substantially. A region-aware router chooses, region by
+region, among such models. Because each is homoscedastic, it can shift a region's
+uncertainty only by the margin by which their global noise estimates differ, a few
+percent, against the $50\times$ regional variation that would be needed.
 
 \begin{figure}[t]\centering
 \includegraphics[width=\textwidth]{figs/orthogonality.pdf}
-\caption{Per-region ECE for four models spanning a wide range of approximation
-fidelity; bars are the range over three seeds. On \texttt{hetero\_extreme} (left) the
-four models are indistinguishable in every region. On \texttt{combined} (right) they
-separate in regions 0 and 1, the only place in our constructed data where a router has
-anything to choose between.}
+\caption{Per-region ECE for four models of nominally different fidelity; bars are the
+range over three seeds. On \texttt{hetero\_extreme} (left) the four models are
+indistinguishable in every region. On \texttt{combined} (right) they separate in
+regions 0 and 1, the only place in our constructed data where a router has anything to
+choose between.}
 \label{fig:orth}
 \end{figure}
 
 \paragraph{What a router can exploit.} A router gains only where its candidate models
-differ in per-region calibration, which can be measured on validation data before a
-router is built. That spread is at most $0.0036$ on three of the four datasets.
-\texttt{combined}, whose regions differ in function complexity and sampling density as
-well as noise, is the exception ($0.0215$ in region~0, $0.0640$ in region~1), and it is
-the one constructed dataset where a non-random router improves on a single model by a
-resolvable margin (\cref{tab:routing}; on \texttt{varying\_density} only the
-random-routing control does, by $0.0005$): the true-partition oracle by $0.0009$ and importance routing by
-$0.0022$ $\ece$, on all three seeds, and the learned oracle by $0.0021$ on average.
-The gain is small, and its source is instructive. The oracle keeps the exact GP, the
-uniform choice, in region~1, where the spread is largest, and gains by switching
-region~0 to RFF. Region~1's spread is not a difference in uncertainty at all: every
-model there predicts $\sigma\approx0.57$ against a true noise of $0.11$, and the exact
-GP's lower $\ece$ comes with a \emph{higher} RMSE ($0.227$ against $0.170$ for RFF),
-its larger errors filling intervals that are too wide for all four. The spread in
-calibration that routing can harvest is therefore small even where it exists, and
-partly reflects the mean rather than the variance.
+differ in per-region calibration. Measured on held-out data within a seed, that spread
+is at most $0.0092$ on three of the four datasets. \texttt{combined}, whose regions
+differ in function complexity and sampling density as well as noise, is the exception
+(up to $0.0266$ in region~0 and $0.0742$ in region~1), and it is the one constructed
+dataset where a non-random router improves on a single model consistently across
+seeds (\cref{tab:routing}; on \texttt{varying\_density} only the random-routing
+control does by more than $0.0001$): the true-partition oracle by $0.0009$ and
+importance routing by $0.0022$ $\ece$, on all three seeds, and the learned oracle by
+$0.0021$ on average. These margins are paired, within-seed differences and lie below
+the unpaired $\ece$ noise floor of \cref{sec:empirical}. Their source is instructive.
+The oracle keeps the exact GP, the uniform choice, in region~1, where the spread is
+largest, and gains by switching region~0 to RFF. Region~1's spread is not a difference
+in uncertainty at all: every model there predicts $\sigma\approx0.57$ against a true
+noise of $0.11$, and the exact GP's lower $\ece$ comes with a \emph{higher} RMSE
+($0.227$ against $0.170$ for RFF), its larger errors filling intervals that are too
+wide for all four. The spread in calibration that routing can harvest is therefore
+small even where it exists, and partly reflects the mean rather than the variance.
+
+\paragraph{Scope.} We test random Fourier features and Nystr\"om/subset-of-regressors
+approximations, each with a homoscedastic likelihood, at $n\le4800$. Approximations
+whose correction acts as input-dependent noise, notably FITC~\citep{snelson2006} and
+PITC~\citep{quinonero2005}, are outside this argument.
 
 \section{Empirical study}
 \label{sec:empirical}
@@ -246,14 +279,15 @@ two are simulators (kin8nm, which we call robot\_arm, and energy), and one,
 synthetic\_heteroscedastic, was constructed for the original study. Four further
 two-dimensional datasets with known regional structure (\texttt{hetero\_extreme},
 \texttt{varying\_smoothness}, \texttt{varying\_density}, \texttt{combined}) are generated
-by \texttt{src/structured\_data.py}; their regions are the tertiles of $x_1$. Noise
-changes in steps at the tertile boundaries, while function complexity ramps smoothly
+by \texttt{src/structured\_data.py}; their regions are three equal-width bands of $x_1$ (cuts at $\pm1/3$). Noise
+changes in steps at the band boundaries, while function complexity ramps smoothly
 in $x_1$ and density is concentrated in a Gaussian blob. In the noise-model comparison each dataset is
 subsampled to at most $2500$ points and split $60/20/20$, so most datasets train on
 $1500$ points but the four smallest train on far fewer. Small test sets bound how
 precisely $\ece$ can be measured: for a perfectly calibrated Gaussian our estimator
-has expectation $0.015$ at $500$ test points and $0.042$ at $62$, so differences
-below about $0.01$ on the larger datasets, and $0.03$ on yacht, are not resolvable.
+has expectation $0.015$ at $500$ test points and $0.042$ at $62$
+(\texttt{src/data\_checks.py}), so absolute $\ece$ values below these are not
+meaningful; paired differences between arms on the same split can resolve less.
 Known data issues are documented in \texttt{data/README.md}: SARCOS test inputs also
 appear in its training file ($0.6\%$ of test points have an exact training twin at
 $n_{\text{train}}=1500$), wine\_white has many duplicate rows ($13\%$ of test points
@@ -287,14 +321,17 @@ yacht & \citet{gerritsma1981yacht} & 308 & 6 & 184 / 62 / 62 \\
 \label{sec:screen}
 Because the hypothesis concerns input-dependent structure, we measure it rather than
 assume it. \Cref{tab:screen} reports $\mathrm{het}$, the ratio of the $90$th to $10$th
-percentile of $k$NN-smoothed out-of-sample squared residuals, over ten seeds.
+percentile of $k$NN-smoothed out-of-sample squared residuals, over ten seeds, and
+compares it with a permutation null. Every dataset but \texttt{varying\_density} is
+significantly above its null on most seeds, but the four lowest real datasets
+(protein, robot\_arm, powerplant, wine\_white) are within $1.45\times$ of it.
 
 \begin{table}[h]\centering
-\caption{Measured input-dependent residual variance over ten seeds. Measured and simulated data span means of
-$2.5$ to $9.3$; on small datasets a single seed can mislead (yacht ranges from $3.4$
-to $20.1$). The synthetic\_heteroscedastic dataset, constructed for the original study as
-a controlled heteroscedastic test case, scores below five measured datasets. Generated by
-\texttt{src/measure\_hetero\_seeds.py}.}
+\caption{Measured input-dependent residual variance over ten seeds: het (mean and sd),
+the mean of its permutation null (residuals shuffled over the inputs), and their ratio.
+The null is not $1$: it depends on the residuals' tails and the test-set size. On small
+datasets a single seed can mislead (yacht ranges from $3.4$ to $20.1$). Generated by
+\texttt{src/measure\_hetero\_seeds.py} and \texttt{src/measure\_hetero\_null.py}.}
 \label{tab:screen}
 \small
 \input{tables/screen.tex}
@@ -307,7 +344,7 @@ a controlled heteroscedastic test case, scores below five measured datasets. Gen
 \caption{$\ece$ on data whose regional structure is true by construction. \emph{true
 oracle} uses the true generative partition and selects the best model per region on
 validation data. Because selection is on validation, it bounds other routers only
-approximately on test, and is beaten by another router on three of the four datasets.
+approximately on test, and is beaten by another router on all four datasets.
 Best per row in bold.}
 \label{tab:routing}
 \begin{tabular}{lrrrrr}
@@ -323,14 +360,19 @@ combined & 0.0525 & 0.0515 & 0.0504 & \textbf{0.0503} & 0.0537 \\
 \end{table}
 
 The mean difference between the true oracle and a single model everywhere is
-$+0.0003$ $\ece$ ($+0.0016$ on \texttt{hetero\_extreme}). On five standard benchmarks,
+$+0.0003$ $\ece$ ($+0.0016$ on \texttt{hetero\_extreme}). On the five benchmarks of the original study,
 with the oracle routing over the learned partition, the corresponding figure is
 $+0.0001$, with the oracle losing on four of five.
 Importance-based routing, the criterion region-aware methods such as the one we
 audited use, is worse than a proportion-preserving random-routing control on three of
 the five, significantly on robot\_arm and sarcos (paired $t$-test over five seeds,
-$p=0.003$ and $p=0.001$), and significantly better only on protein, by $0.0009$
-($p=0.048$).
+Holm-adjusted over the five benchmarks, $p=0.011$ and $p=0.007$;
+\texttt{src/significance.py}), and nominally significantly better only on protein, by $0.0009$
+($p=0.048$, not significant after correction). A Wilcoxon test cannot reach $p<0.0625$
+with five seeds, hence the $t$-test here. The oracle selects per region on validation
+$\ece$, from as few as about $50$ validation points per region
+(\texttt{varying\_density}), so it bounds routing only as well
+as that selection resolves.
 
 \section{Making the noise model input-dependent}
 \label{sec:noise}
@@ -341,54 +383,68 @@ eleven datasets: a single global noise parameter fitted by marginal likelihood; 
 two-stage heteroscedastic GP in the spirit of \citet{goldberg1997} and
 \citet{kersting2007}, whose noise variance is a $k$NN smoothing of per-point noise
 evidence with zero or one refinement pass (re-estimating the evidence under the
-first-pass noise); and \emph{regional} noise, a
-piecewise-constant noise variance over a partition of the input space by local
-residual variance. Both input-dependent arms use the same out-of-fold noise evidence,
-the squared out-of-fold residual minus the fold model's latent predictive variance at
-that point, which is unbiased for $\sigma^2(x_i)$ when the fold model's latent
-variance matches its actual error, that is, up to model misspecification such as
-squared bias of the mean.
-Both select their configuration on validation NLL (six configurations for the het-GP,
-twelve for regional noise) and never see test labels. Ten seeds; significance is a
-paired Wilcoxon signed-rank test against the global arm.
+first-pass noise); and \emph{regional} noise, a piecewise-constant noise variance over
+a partition of the input space by local residual variance. Both input-dependent arms
+use the same latent-variance-corrected out-of-fold noise evidence: the squared
+out-of-fold residual minus the fold model's latent predictive variance at that point.
+Pointwise this is unbiased for $\sigma^2(x_i)$ only if the fold model is well
+specified, that is, if its latent variance equals the actual squared error of its mean.
+Region means taken over a partition built from the same evidence are biased away from
+the overall mean, and are floored at $0.05\,\sigma_n^2$; the floor binds for $0$ to
+$59\%$ of test points depending on the dataset (\texttt{src/noise\_controls.py}), and
+on yacht the mean evidence is negative in nine of ten seeds, so the floor binds for
+most of its test points ($59\%$ on average). Both arms select their configuration on
+validation NLL (six configurations for the het-GP, twelve for regional noise) and never
+see test labels. Significance is a paired two-sided Wilcoxon signed-rank test against
+the global arm with Holm correction over the eleven datasets (\texttt{src/significance.py}).
 
 \begin{table}[h]\centering
-\caption{$\ece$ by noise model, ordered by measured het ratio (\cref{tab:screen}).
-$^{\uparrow}$/$^{\downarrow}$: significantly better/worse than global noise
-($p<0.05$, ten seeds). Generated by \texttt{src/hetero\_fair.py} and
+\caption{$\ece$ by noise model, seeds $0$--$9$, ordered by het ratio relative to its
+permutation null (\cref{tab:screen}). $^{\uparrow}$/$^{\downarrow}$: better/worse than
+global noise at Holm-adjusted $p<0.05$ over the eleven datasets. Generated by
+\texttt{src/hetero\_fair.py}, \texttt{src/significance.py} and
 \texttt{src/paper\_tables.py}.}
 \label{tab:noise}
 \small
 \input{tables/noise.tex}
 \end{table}
 
-\paragraph{Input-dependent noise pays where there is input-dependence to model.} Regional noise
-is the best-calibrated arm on six of eleven datasets, significantly better than a
-single global noise parameter on five (sarcos, airfoil, calhousing, concrete,
-synthetic\_heteroscedastic) and significantly worse on none. The heteroscedastic GP is
-best on NLL on nine of eleven and on CRPS on nine, significantly better than global
-noise on NLL on eight. All five datasets with a significant $\ece$ gain have mean het
-ratios of at least $4.0$ and train on at least $618$ points. The four with the lowest
-het ratios (protein, robot\_arm, powerplant, wine\_white, all below $2.7$) show no
-significant $\ece$ difference for regional noise, and there the global arm's $\ece$
-already sits at the estimator's noise floor (\cref{sec:empirical}). The two datasets
-with the highest het ratios, yacht and energy, are also the two smallest ($184$ and
-$460$ training points), and regional noise does not separate from global noise on
-$\ece$ on either. The het-GP is significantly worse on $\ece$ on yacht and on protein;
-regional noise is significantly worse on none (on CRPS it is significantly worse on
-yacht).
+\paragraph{Input-dependent noise pays where there is input-dependence to model.}
+Regional noise is the best-calibrated arm on six of eleven datasets. After Holm
+correction it is significantly better than global noise on $\ece$ on airfoil, sarcos
+and calhousing in seeds $0$--$9$, and on the same three plus
+synthetic\_heteroscedastic in the disjoint seeds $10$--$19$; concrete and
+synthetic\_heteroscedastic are nominally significant in seeds $0$--$9$ ($p=0.014$,
+$0.037$) and all five are Holm-significant when the twenty splits are pooled. It is
+significantly worse on $\ece$ on no dataset in any of the three analyses, but on yacht,
+the smallest dataset, it is significantly worse on NLL and CRPS (seeds $10$--$19$ and
+pooled). The heteroscedastic GP is best on NLL on nine of eleven datasets
+and significantly better than global noise on NLL on seven after correction in seeds
+$0$--$9$ (nine in seeds $10$--$19$), and significantly worse on yacht.
 
-On constructed data the effect is larger. With the true partition and the same
-out-of-fold evidence, regional noise improves $\ece$ from $0.2374$ to $0.1367$ on
-\texttt{hetero\_extreme} and from $0.0527$ to $0.0285$ on \texttt{combined}
-(\texttt{src/hetero\_baseline.py}). It also improves \texttt{varying\_smoothness}
-($0.0675 \to 0.0152$), whose noise is homoscedastic: there the regional term absorbs
-model bias that varies with function complexity, a reminder that input-dependent
-residual variance is not the same thing as input-dependent noise.
+The datasets with a robust $\ece$ gain have het ratios at least $1.75$ times their
+permutation null and train on at least $901$ points. The four with het ratios closest
+to their null (protein, robot\_arm, powerplant, wine\_white, at most $1.45$ times) show
+no significant difference for regional noise, and there the global arm's $\ece$
+already sits near the estimator's noise floor (\cref{sec:empirical}). The two smallest
+datasets, yacht and energy ($184$ and $460$ training points), have high het ratios but
+show no $\ece$ gain. This pattern was identified after the fact, and across all eleven
+datasets neither the het ratio nor its ratio to the null predicts the size of the gain
+(Spearman $\rho=0.07$ and $0.09$).
+
+On constructed data the effect is larger. With the true partition, a correctly
+specified piecewise-constant noise model and the same out-of-fold evidence, regional
+noise improves $\ece$ from $0.2374$ to $0.1367$ on \texttt{hetero\_extreme} and from
+$0.0527$ to $0.0285$ on \texttt{combined} (\texttt{src/hetero\_baseline.py}); these are
+upper bounds rather than estimates of what a learned partition achieves. It also
+improves \texttt{varying\_smoothness} ($0.0675 \to 0.0152$), whose noise is
+homoscedastic: there the regional term absorbs model bias that varies with function
+complexity, a reminder that input-dependent residual variance is not the same thing as
+input-dependent noise.
 
 \paragraph{The earlier, opposite conclusion was an estimator bias.} A previous version
-of this analysis found that global noise won on nine of eleven datasets and that the
-het-GP won on none. Both input-dependent arms were mis-estimated. The regional arm
+of this analysis found that on $\ece$ global noise was best on nine of eleven datasets
+and the het-GP on none. Both input-dependent arms were mis-estimated. The regional arm
 used the out-of-fold squared residual as its noise estimate and then added the latent
 variance again, counting it twice and making regional noise under-confident, most of
 all where latent variance is large, at small $n$. The het-GP smoothed \emph{log}
@@ -398,10 +454,11 @@ fifth result in this project that turned on how a baseline was configured.
 
 \subsection{Adversarial audit of this section's claim}
 \label{sec:adversarial}
-We attacked the regional-noise claim five ways with five seeds, four of them on six
-real datasets and the sample-size sweep on the four large enough for it
-(\texttt{src/adversarial.py}, \texttt{src/adversarial\_n.py}). None of the attacks
-overturns it.
+We attacked the regional-noise claim six ways: sharpness, granularity and metric
+choice on six real datasets with five seeds (\texttt{src/adversarial.py}), global
+recalibration and selection on all eleven datasets with ten seeds
+(\texttt{src/noise\_controls.py}), and training-set size on the four datasets large
+enough for it (\texttt{src/adversarial\_n.py}). None of the attacks overturns it.
 
 \paragraph{Sharpness.} A model with systematically wide intervals can win $\ece$
 without being better. Relative to the target's standard deviation, regional intervals
@@ -413,8 +470,22 @@ narrowness is yacht.
 between $0.029$ and $0.036$, against $0.048$ for global noise, so the result does not
 depend on the number of regions.
 
-\paragraph{Tuning parity.} Giving the global arm a validation-selected noise multiplier
-changes it in six of thirty cells, and on no dataset does it lift the global arm above regional noise.
+\paragraph{Global recalibration.} The input-dependent arms see validation data and the
+global arm does not, so we gave the global arm three recalibrations using the same
+validation data: a single noise level set to the mean out-of-fold evidence (regional
+noise with one region), a noise multiplier chosen from $61$ values in $[0.5, 2]$ on
+validation NLL, and a rescaling of the total predictive standard deviation by its
+validation-optimal factor. Only the first helps significantly, and only on airfoil
+($0.078 \to 0.060$; calhousing $0.069 \to 0.065$, $p=0.19$), while it makes concrete,
+sarcos and synthetic\_heteroscedastic significantly worse; neither of the others
+improves any dataset significantly. Regional noise remains better than each
+recalibration on the same five datasets at uncorrected $p<0.05$, and on airfoil and
+calhousing after Holm correction. The global arm's miscalibration is in
+the shape of its $z$-distribution, not its scale.
+
+\paragraph{Selection.} Regional noise with one fixed configuration ($3$ regions,
+$k=50$) and no selection is still significantly better than global noise on airfoil,
+sarcos and calhousing; dropping the noise floor changes no conclusion.
 
 \paragraph{Metric choice.} Regional noise is better than global on $\ece$ at $5$, $10$
 and $20$ bins (five, four and four of six datasets), on PIT-KS (five of six), on CRPS
@@ -479,28 +550,45 @@ shrinkage.}
 
 All three input-dependent arms improve CRPS over global noise by $0.4$--$1.3\%$ at
 every $n$ (\cref{tab:shrink}). Shrinkage adds little on top of raw regional noise,
-about $0.2\%$ (between $0.02\%$ and $0.33\%$), but consistently: the paired gain is
-about three standard errors at four of the five $n$. The selected $\lambda$ shows no trend in $n$
+about $0.2\%$ (between $0.02\%$ and $0.33\%$); the paired gain is $2.5$--$3.0$
+standard errors at four of the five $n$ ($0.5$ at $n=600$), though nested training
+sets make the five $n$ dependent. The selected $\lambda$ shows no trend in $n$
 ($0.27$--$0.36$), so the variance-reduction story that motivated shrinkage, strong
-shrinkage when data is scarce and weak when it is plentiful, is not supported.
+shrinkage when data is scarce and weak when it is plentiful, is not supported. A
+roughly constant $\lambda$ is what one would expect if shrinkage instead corrects the
+spread that selection induces in region means built from the same evidence
+(\cref{sec:noise}), which depends on $k$ rather than $n$; we have not tested this.
 
 \paragraph{Region identification is not the bottleneck.} Scoring regions by predictive
 uncertainty and local sparsity, as the method we audited does, recovers the true
-partition only $41$--$49\%$ of the time, against $33$--$34\%$ for random labels. Scoring by $k$NN-smoothed out-of-fold residual variance raises this
+partition only $41$--$49\%$ of the time, against about $33\%$ for uniformly random
+labels; on \texttt{varying\_density} and \texttt{combined}, whose true regions are very
+unequal in size, agreement mainly reflects label proportions. Scoring by $k$NN-smoothed out-of-fold residual variance raises this
 to $96.7\%$ on \texttt{hetero\_extreme}, whose regions differ only in noise. On
 \texttt{varying\_smoothness} it reaches $82.0\%$ although the noise is homoscedastic,
 because residual variance there tracks model bias. On \texttt{combined} it manages
-$44.4\%$ and on \texttt{varying\_density} $36.1\%$, both below the
-uncertainty-and-sparsity score ($49.0\%$, $45.2\%$). Residual-variance scoring recovers
+$44.4\%$ and on \texttt{varying\_density} $36.1\%$, scores that, given the unequal
+regions, say little. Residual-variance scoring recovers
 the partition when the regions differ in residual variance, whatever its source, and
 not otherwise.
 
 \subsection{Seed robustness}
 \label{sec:diff}
 All results in \cref{tab:noise} use seeds $0$--$9$. On the disjoint seeds $10$--$19$
-(\texttt{src/diff\_seeds.py}) regional noise is again significantly better calibrated
-than global noise on five datasets and significantly worse on none, and the het-GP is
-significantly better on NLL on nine. The conclusion does not depend on the seeds.
+(\texttt{src/diff\_seeds.py}) regional noise is again nominally significantly better
+calibrated than global noise on five datasets (four after Holm correction) and
+significantly worse on none, and the het-GP is significantly better on NLL on nine.
+
+Seeds are disjoint splits, not new data. On the four datasets used in full (yacht,
+energy, concrete, airfoil) any two splits share about $60\%$ of training and $20\%$ of
+test points, so seed-level tests are anti-conservative there. Under a Nadeau--Bengio
+corrected resampled $t$-test~\citep{nadeau2003}, the $\ece$ gains of regional noise on
+airfoil, sarcos and calhousing remain significant in seeds $0$--$9$ ($p\le0.015$);
+those on concrete and synthetic\_heteroscedastic do not ($p=0.18$ and $0.25$;
+synthetic\_heteroscedastic reaches $p=0.038$ in seeds $10$--$19$). We regard the first three as
+the robust result. In one wine\_white seed in ten the global arm's fitted noise sits at
+its lower bound, which inflates that seed's global $\ece$; wine\_white shows no
+significant difference either way.
 
 \section{Process: which claims failed, and what caught them}
 \label{sec:process}
@@ -534,12 +622,13 @@ from $0.087$ to $0.077$, far from the $0.017$ of an L-BFGS fit \\
 \addlinespace
 It is hyperparameters fitted on a subsample &
 fitting on all $n$ should fix it &
-\textbf{Moot.} The gap it was proposed to explain ($0.27$ vs $0.017$) was the
-inference hazard of \cref{sec:hazard} \\
+\textbf{Moot.} Most of the gap it was proposed to explain ($0.27$ vs $0.017$) was the
+inference hazard of \cref{sec:hazard}; under exact inference the baseline reaches
+$0.08$ \\
 \addlinespace
 Regional noise loses at small $n$ because per-region variances are estimated from few
 residuals & the gap should close as $n$ grows &
-\textbf{Refuted on average.} With an unbiased noise estimate the mean gap favours
+\textbf{Refuted on average.} With a corrected noise estimate the mean gap favours
 regional noise at every $n$ (\cref{tab:attackn}); a small, non-significant small-$n$
 disadvantage remains on powerplant and wine\_white \\
 \addlinespace
@@ -547,11 +636,11 @@ Shrinkage helps by reducing estimation variance at small $n$ &
 selected $\lambda$ should fall as $n$ grows &
 \textbf{Refuted.} $\bar\lambda$ stays in $0.27$--$0.36$ with no trend \\
 \addlinespace
-Fidelity and predictive uncertainty are orthogonal because the shared noise term
+Fidelity and predictive uncertainty are nearly orthogonal because the noise term
 dominates~\cref{eq:var} &
 models of differing fidelity should emit near-identical $\sigma$ &
-\textbf{Survived.} $\sigma$ spread $\le 1.9\%$ in every region of four constructed
-datasets; below $4\%$ on average on real data for $1200 \le n \le 4800$ \\
+\textbf{Survived.} Across Nystr\"om ranks RMSE moves $21$--$155\%$ and $\sigma$ at most
+$12\%$; per-region $\sigma$ within $2.7\%$ on constructed data \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -567,7 +656,9 @@ both of ours would have reversed a conclusion.
 raw $X$ and applied to standardised $X$, wrong by $155{,}000\times$ on protein,
 where the baseline degenerated to a constant predictor ($\mathrm{RMSE} = 6.1346$
 against $\mathrm{std}(y) = 6.1182$, $R^2 = 0$). The original $+41.1\%$ headline was
-the distance to that model; corrected, it is $-9.9\%$.
+measured against these broken baselines; with scale-correct lengthscales, fitted
+noise and exact inference, the method without an exact-GP tier is $-9.9\%$ against
+uniform Nystr\"om ($+4.5\%$ with one; \texttt{results/fair\_exact}).
 \item \textbf{Noise never fitted.} The approximations used a hardcoded
 $\sigma_n = 0.1$ while the exact GP fitted its noise by marginal likelihood. One arm
 was tuned and the others were not.
@@ -576,12 +667,13 @@ which perturbed every calibration number above $n=800$ and inflated most, by up 
 a factor of ten.
 \item \textbf{In-sample residuals.} Our first heteroscedastic-GP comparison estimated
 noise from in-sample residuals of a GP conditioned on the same points, which
-underestimate it, and the het-GP lost on every dataset.
+underestimate it, and the het-GP was worse than global noise on three of four
+constructed datasets.
 \item \textbf{A biased noise estimator in both input-dependent arms.} Moving to
 out-of-fold residuals was not enough. An out-of-fold squared residual is noise plus
 latent variance; the regional arm then added the latent variance again, and the
 het-GP took a geometric mean of squared residuals, $0.28\times$ too small. Together
-these produced a complete negative result (global noise best on nine of eleven
+these produced a negative result on $\ece$ (global noise best on nine of eleven
 datasets, the het-GP on none) and a spurious sample-size reversal that an earlier
 draft of this paper reported as a finding. With the estimator corrected, the result
 is the opposite (\cref{sec:noise}).
@@ -594,7 +686,7 @@ was found only by an independent audit of the code against the paper.
 
 \subsection{Verifications that passed without running}
 
-Three checks reported success while failing:
+Four checks reported success while failing:
 
 \begin{itemize}
 \item An audit script printed \texttt{CLEAN: no selection on test labels} three times.
@@ -604,22 +696,27 @@ argument; the greps errored and a \texttt{|| echo} fallback reported the pass.
 its last stage and the traceback had been piped to \texttt{tail}.
 \item \Cref{tab:orth}, the paper's central mechanism, was generated by an ad-hoc
 command that was never committed. Regenerating it from a script changed the numbers.
+\item The decomposition of \cref{sec:hazard} first reported that raising the Cholesky
+threshold alone left the error unchanged. Every inference path was evaluated on the
+same model object, and GPyTorch reused the covariance cached by the first path; a
+statistical review of the code found it.
 \end{itemize}
 
-Every reported number is produced by a committed script reachable from
-\texttt{reproduce.sh}. \Cref{tab:orth,tab:screen,tab:noise,tab:attackn,tab:shrink} are
-written directly from stored results by \texttt{src/paper\_tables.py};
-\cref{tab:hazard,tab:routing,tab:mechanisms} transcribe
-\texttt{results/inference/report.txt}, \texttt{results/structured/results.json} and the
-mechanism results, and the audit figures of \cref{sec:process} come from
-\texttt{AUDIT.md}.
+Every number in \cref{sec:hazard,sec:orth,sec:empirical,sec:noise} is produced by, or
+recomputable from, results written by committed scripts reachable from
+\texttt{reproduce.sh}. \Cref{tab:hazard,tab:orth,tab:ranksweep,tab:screen,tab:noise,tab:attackn,tab:shrink}
+are written directly from stored results by \texttt{src/paper\_tables.py};
+\cref{tab:data,tab:routing,tab:mechanisms} transcribe \texttt{results/} files. The audit
+figures in this section come from \texttt{AUDIT.md} and \texttt{RESULTS\_FAIR.md}, and
+the earlier, superseded results from the repository history.
 
 \subsection{A checklist for GP calibration studies}
 
 \begin{enumerate}
-\item Confirm the inference path is exact. Disable fast predictive-variance
-approximations and raise any Cholesky-size threshold above $n$, for training as well
-as prediction; verify that results below the threshold are unchanged by the setting.
+\item Confirm the inference path is exact. Raise any Cholesky-size threshold above $n$
+and disable fast predictive-variance approximations, for training as well as
+prediction; clear the prediction cache between configurations; verify that results
+below the threshold are unchanged by the setting.
 \item Fit kernel hyperparameters in the space the kernel operates in, and verify a
 fitted lengthscale against the median pairwise distance of the \emph{transformed}
 inputs.
@@ -628,15 +725,16 @@ for each.
 \item Estimate any residual-derived quantity out-of-fold, and check its expectation:
 an out-of-fold squared residual includes latent variance, and the log of a squared
 residual is biased by $-1.27$.
-\item Screen datasets for the property under study over several seeds; do not assume
-it. A dataset named for a phenomenon may not exhibit it:
-\texttt{synthetic\_heteroscedastic} here ranks below five measured datasets
-(\cref{tab:screen}).
+\item Screen datasets for the property under study over several seeds, and calibrate
+the screening statistic against a permutation null; do not assume the property.
+(\cref{tab:screen}: the het ratio's null is $1.8$--$4.1$, not $1$.)
 \item Report a proper scoring rule alongside any binned calibration metric, and the
 $\ece$ noise floor for the test-set size.
 \item Average metrics across datasets only in scale-free form; CRPS, NLL differences
 aside, is in target units, and one dataset can dominate a raw mean.
 \item When sweeping $n$, hold the validation and test sets fixed.
+\item Correct per-dataset significance for the number of datasets, and treat resampled
+splits of one dataset as dependent.
 \end{enumerate}
 
 \FloatBarrier
@@ -644,16 +742,23 @@ aside, is in target units, and one dataset can dominate a raw mean.
 \label{sec:threats}
 \begin{itemize}
 \item Our constructed datasets reach het ratios of ${\sim}1600$ where measured data
-averages at most ${\sim}9$ (\cref{tab:screen}), and vary noise in steps rather than
-smoothly, which structurally favours a piecewise-constant noise model. The claims of
-\cref{sec:noise} rest on the real-data results.
+averages at most ${\sim}9$ (\cref{tab:screen}). Two of them vary noise in steps at
+equal-width bands of $x_1$ with three regions, which structurally favours a
+piecewise-constant noise model and makes the partition easy to recover; they are dense
+and two-dimensional, which makes the latent term small and favours orthogonality. The
+claims of \cref{sec:noise} rest on the real-data results.
+\item Every GP in \cref{sec:orth,sec:empirical,sec:noise} uses an isotropic RBF kernel
+(one lengthscale, even for $21$-dimensional sarcos) fitted by L-BFGS-B with at most
+$60$ iterations from each of three starts. Misspecification of the mean adds
+input-dependent residual variance, which regional noise can absorb; an ARD kernel
+might narrow the gap on the datasets where regional noise wins.
 \item The heteroscedastic GP is a two-stage $k$NN construction, not a full
 implementation of \citet{kersting2007} or of the variational heteroscedastic GP
 of~\citet{lazarogredilla2011}. An independent GPyTorch implementation with a GP noise
 model (\texttt{src/hetero\_independent.py}, five seeds) agrees where the effect is
 large, improving on its own global baseline on airfoil ($0.077 \to 0.048$ $\ece$) and
-calhousing ($0.068 \to 0.029$), but is worse on the other four, most of all on the two
-smallest (energy and yacht). How much an input-dependent noise model gains therefore
+calhousing ($0.068 \to 0.029$), but is worse on $\ece$ on the other four, most of all
+on the two smallest (energy and yacht). How much an input-dependent noise model gains therefore
 depends on how it is built; that it gains on the larger heteroscedastic datasets does
 not.
 \item Residual variance that varies with $x$ may reflect model bias rather than noise
@@ -693,16 +798,16 @@ partition, which our result on residual-variance scoring complements.
 GP on log residuals~\citep{goldberg1997}, by EM~\citep{kersting2007}, and
 variationally~\citep{lazarogredilla2011}. Our regional noise is a coarse, piecewise
 approximation to these, and \cref{sec:noise} finds that even this coarse form
-significantly improves calibration on four of our ten real datasets (five of eleven
-including the constructed one). Our experience adds a practical caution for
+significantly improves calibration on three of our ten real datasets after
+correction, four (five of eleven including the constructed one) when twenty splits are
+pooled. Our experience adds a practical caution for
 two-stage constructions: both the latent variance in out-of-fold residuals and the
 log-of-squared-residual bias are large enough to reverse a comparison.
 
 \paragraph{Calibration in regression.} Interval-coverage calibration
 \citep{kuleshov2018} and proper scoring rules~\citep{gneiting2007} measure different
-things. In our final results they mostly agree (the exception is the het-GP on
-protein, significantly worse on $\ece$ but significantly better on NLL and CRPS),
-whereas an earlier, biased version of the comparison had them disagree
+things. In our final results they mostly agree (on yacht regional noise is no worse
+on $\ece$ but significantly worse on NLL and CRPS in seeds $10$--$19$ and pooled), whereas an earlier, biased version of the comparison had them disagree
 systematically, which is one reason we report both.
 
 \paragraph{Reproducibility and measurement validity.} \Cref{sec:hazard} belongs to a
@@ -714,24 +819,29 @@ a protocol choice, which makes it invisible in code review.
 \section{Conclusion}
 
 Region-aware Gaussian processes can adapt two things by region: the fidelity of the
-approximation, or the noise model. Only the second can change the predictive
-uncertainty a region receives. Sparse approximations alter only the latent term of the
-predictive variance, so models of very different fidelity emit predictive standard
-deviations within $2\%$ of one another in every region of our constructed data, and an oracle
-router given the true partition gains nothing ($+0.0003$ $\ece$). Making the noise
-term regional, by contrast, improves calibration significantly on five of eleven
-datasets and harms it on none, with the gains on datasets whose measured residual
-variance is input-dependent and whose training sets are large enough to estimate it.
+approximation, or the noise model. In our experiments only the second changed the
+predictive uncertainty a region receives. The random-feature and Nystr\"om
+approximations we tested alter only the latent term of the predictive variance, so
+their predictive standard deviations move far less than their accuracy and agree
+within $3\%$ in every region of our constructed data, and an oracle router given the
+true partition gains nothing on average ($+0.0003$ $\ece$). Making the noise term
+regional, by contrast, improves calibration robustly on the larger datasets whose
+residual variance is clearly input-dependent (airfoil, sarcos and calhousing under
+every correction we apply, five datasets in pooled analyses) and does not worsen
+$\ece$ on any, though it worsens NLL and CRPS on the smallest.
 
-The practical readings are that routing approximation fidelity by region is not worth
-building, that the same regional machinery pointed at the \emph{noise} model is worth
-building when a screen shows input-dependent residual variance, and that the partition
-such methods need is recoverable by residual-variance scoring when the regions differ
-in residual variance.
+The practical readings are that routing approximation fidelity among homoscedastic
+approximations is not worth building, that the same regional machinery pointed at the
+\emph{noise} model is worth trying when there is enough data and the residual
+variance is clearly input-dependent relative to a permutation null (a screen that
+separated, after the fact, the datasets that gained from those that did not, but did
+not predict the size of the gain), and that the
+partition such methods need is recoverable by residual-variance scoring when the
+regions differ in residual variance.
 
 Separately, practitioners measuring GP calibration should verify that their inference
 path is exact. Above a library default that appears nowhere in user code, ours was
-not, and every calibration number we computed above it before noticing was wrong,
+not, and the calibration numbers we computed above it before noticing were inflated
 by up to a factor of ten.
 
 \paragraph{Reproducibility.} All code, data and results:

@@ -1,5 +1,36 @@
 # Region-aware GPs: adapt the noise, not the approximation
 
+## Correction, 2026-10-16: statistics, scope, and the hazard decomposition
+
+A statistical review of the code and a second claim-by-claim check found:
+
+1. **The Section 3 decomposition was wrong.** `inference_corruption.py` evaluated all
+   inference paths on one model object, and GPyTorch reused the covariance cached by
+   the first LOVE call. With the cache cleared per path (`reset_cache`): defaults
+   101.92% median error in sigma above n=800; raising `max_cholesky_size` alone 0.00%;
+   disabling `fast_pred_var` alone 5.62% (iterative-solve error, up to 38% on sarcos).
+   The hazard stands; its control is the Cholesky threshold, not the flag.
+2. **Multiple comparisons.** With Holm correction over 11 datasets, regional noise
+   beats global on ECE on airfoil, sarcos, calhousing (seeds 0-9), plus
+   synthetic_heteroscedastic (seeds 10-19); all five nominal datasets survive only
+   when the 20 splits are pooled. Nadeau-Bengio corrected t-test: the three survive,
+   concrete and synthetic_heteroscedastic do not. Regional is significantly worse on
+   yacht for NLL/CRPS. `src/significance.py`.
+3. **Orthogonality spreads were seed-averaged.** Per seed, sigma spread is up to 2.64%
+   (was reported 0.37%). The four constructed-data models are similarly accurate, so
+   the stronger evidence is the Nystrom rank sweep: RMSE changes 21-155%, mean sigma
+   0-12%. Claims now scoped to RFF/Nystrom with homoscedastic noise; FITC/PITC excepted.
+4. **"Unbiased" overclaimed.** Pointwise only if the fold model is well specified;
+   region means over a partition built from the same evidence are biased; the floor
+   binds for 0-59% of test points; yacht's mean evidence is negative in 9 of 10 seeds.
+5. **Controls added** (`src/noise_controls.py`): three validation recalibrations of the
+   global arm do not close the gap; a fixed configuration with no selection still wins
+   on airfoil, sarcos, calhousing.
+6. **Het ratio needs a null** (`src/measure_hetero_null.py`): its permutation null is
+   1.8-4.1, not 1.
+
+---
+
 ## Correction, 2026-10-13: the noise-model half of the negative result was an estimator bias
 
 A pre-submission audit of the code against the paper found two biases in the noise

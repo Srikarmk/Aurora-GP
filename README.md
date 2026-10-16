@@ -23,17 +23,21 @@ The paper is in [`paper/`](paper/) (`main.tex`, built with
 
 ## Main results
 
-- **Fidelity and uncertainty are orthogonal.** On four constructed datasets with known
-  regional structure, RFF, two Nystrom ranks and the exact GP emit mean predictive
-  standard deviations within 2% of one another in every region, while the true noise
-  varies 50x. An oracle router given the true partition gains nothing (+0.0003 ECE).
-- **Input-dependent noise pays.** With an unbiased out-of-fold noise estimate, regional
-  noise is significantly better calibrated than a single global noise parameter on 5 of
-  11 datasets and significantly worse on none; a two-stage heteroscedastic GP is
-  significantly better on NLL on 8. Replicates on disjoint seeds.
-- **A measurement hazard.** GPyTorch's `fast_pred_var()` is a no-op below
-  `max_cholesky_size` (default 800) and perturbs predictive standard deviations by a
-  median of ~100% above it, inflating ECE 3-10x at n=4000.
+- **Fidelity and uncertainty are nearly orthogonal** (RFF and Nystrom, homoscedastic
+  noise, n <= 4800). Varying Nystrom rank with hyperparameters fixed changes test RMSE
+  by 21-155% but mean predictive sd by 0-12%. On four constructed datasets, four models'
+  per-region predictive sds agree within 3% while the true noise varies 50x. An oracle
+  router given the true partition gains nothing on average (+0.0003 ECE).
+- **Input-dependent noise pays** on the larger datasets with clearly input-dependent
+  residual variance. With a latent-variance-corrected out-of-fold noise estimate,
+  regional noise beats a global noise parameter on ECE on airfoil, sarcos and
+  calhousing under Holm correction in both disjoint sets of ten splits and under a
+  Nadeau-Bengio corrected test; it is worse on ECE nowhere, but worse on NLL/CRPS on
+  yacht (184 training points).
+- **A measurement hazard.** In GPyTorch 1.15.2, `fast_pred_var()` is inert below
+  `max_cholesky_size` (default 800) and perturbs predictive sds by a median of ~100%
+  above it, inflating ECE 3-10x at n=4000. Raising `max_cholesky_size` above n removes
+  the error; disabling `fast_pred_var()` alone does not.
 
 ## How the project got here
 

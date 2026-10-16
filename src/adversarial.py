@@ -1,19 +1,20 @@
 """
 ADVERSARIAL AUDIT of this paper's own conclusions.
 
-The headline -- a single global noise parameter beats regional and heteroscedastic
-noise on real data -- rests on ECE with ten central-interval bins. That is one metric,
+The headline -- regional noise beats a single global noise parameter on real data --
+rests on ECE with ten central-interval bins. (An earlier, biased version of the noise
+estimator gave the opposite headline; see FINDINGS.md.) That is one metric,
 one granularity, one sample size and one tuning protocol. Each is a place the
 conclusion could be an artifact. This mounts four attacks.
 
   A. METRIC DEPENDENCE. ECE over central intervals is not a proper scoring rule, and
      it is known to reward underconfidence: intervals that are too wide can score
-     well. If "global wins" survives only under ECE, it is not a result. Tested
+     well. If the result survives only under ECE, it is not a result. Tested
      against CRPS (proper), NLL (proper), the Kolmogorov-Smirnov statistic of the
      probability integral transform (a strictly sharper calibration test than binned
      ECE), 90% interval coverage error, and ECE at 5 / 10 / 20 bins.
 
-  B. SHARPNESS. If global noise wins by being underconfident rather than correct, its
+  B. SHARPNESS. If an arm wins by being underconfident rather than correct, its
      mean predictive width should exceed the others'. Reported alongside.
 
   C. GRANULARITY. Regional noise was tested with 2, 3 or 5 regions. As the count

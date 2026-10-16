@@ -1,7 +1,6 @@
 """Write the paper's result tables as LaTeX (paper/tables/*.tex) from results/."""
 import json, numpy as np
 from pathlib import Path
-from scipy.stats import wilcoxon
 
 P = Path(__file__).parent.parent
 T = P / 'paper' / 'tables'; T.mkdir(parents=True, exist_ok=True)
@@ -10,19 +9,17 @@ tex = lambda s: s.replace('_', r'\_')
 ORIGIN = {'robot_arm': 'simulated', 'energy': 'simulated',
           'synthetic_heteroscedastic': 'constructed'}
 
-
-def pval(a, b):
-    d = np.asarray(a) - np.asarray(b)
-    return wilcoxon(d).pvalue if np.ptp(d) > 0 else 1.0
-
-
 HEAD = {
+    'hazard': ('lrrrr',
+        'dataset & $n_{\\text{train}}$ & $\\ece$ default & $\\ece$ exact & median $\\sigma$ error \\\\'),
     'orthogonality': ('llrrrrrr',
         'dataset & region & RFF & Nystr\\"om-500 & Nystr\\"om-1500 & exact GP & ECE spread & $\\sigma$ spread \\\\'),
-    'screen': ('llrrr',
-        'origin & dataset & het (mean) & sd & range \\\\'),
+    'ranksweep': ('lrrrrr',
+        'dataset & ranks & RMSE (lowest) & RMSE (highest) & RMSE change & mean $\\sigma$ change \\\\'),
+    'screen': ('llrrrr',
+        'origin & dataset & het & sd & null & het / null \\\\'),
     'noise': ('llrrrrr',
-        'dataset & origin & $n_{\\text{train}}$ & het & global & het-GP & regional \\\\'),
+        'dataset & origin & $n_{\\text{train}}$ & het / null & global & het-GP & regional \\\\'),
     'nsweep': ('rrrrrr',
         '$n_{\\text{train}}$ & calhousing & powerplant & wine\\_white & airfoil & mean \\\\'),
     'shrinkage': ('rrrrrr',
@@ -38,7 +35,21 @@ def write(name, body):
     print('wrote', name)
 
 
+def hazard():
+    R = L('inference/corruption.json')
+    rows = []
+    for d in sorted(R):
+        n = max(R[d], key=int); c = list(R[d][n].values())
+        f = lambda mode, k: np.mean([x[mode][k] for x in c])
+        rows.append(f"{tex(d.replace('synthetic_heteroscedastic', 'synthetic'))} & {n} & "
+                    f"{f('repo_default', 'ece'):.4f} & {f('exact', 'ece'):.4f} & "
+                    f"{100 * f('repo_default', 'std_relerr_median'):.2f}\\% \\\\")
+    write('hazard', "\n".join(rows) + "\n")
+
+
 def orthogonality():
+    """Spreads are computed within each seed (a router acts within one fit), and the
+    largest over seeds is reported; model columns are seed means."""
     R = L('structured/orthogonality.json')
     arms = ['rff', 'nys', 'nys_hi', 'gp']
     rows = []
@@ -46,39 +57,65 @@ def orthogonality():
         c = list(cells.values())
         for j, r in enumerate(sorted(c[0], key=int)):
             e = [np.mean([x[r]['ece'][a] for x in c]) for a in arms]
-            s = [np.mean([x[r]['mean_std'][a] for x in c]) for a in arms]
-            sp = 100 * (max(s) - min(s)) / np.mean(s)
+            esp = max(max(x[r]['ece'][a] for a in arms) - min(x[r]['ece'][a] for a in arms) for x in c)
+            ssp = max(100 * (max(x[r]['mean_std'][a] for a in arms) - min(x[r]['mean_std'][a] for a in arms))
+                      / np.mean([x[r]['mean_std'][a] for a in arms]) for x in c)
             lead = rf'\texttt{{{tex(ds)}}}' if j == 0 else ''
             rows.append(f"{lead} & {r} & " + " & ".join(f"{v:.4f}" for v in e)
-                        + f" & {max(e) - min(e):.4f} & {sp:.2f}\\% \\\\")
+                        + f" & {esp:.4f} & {ssp:.2f}\\% \\\\")
         rows.append(r'\midrule')
     write('orthogonality', "\n".join(rows[:-1]) + "\n")
 
 
+def ranksweep():
+    """Nystrom rank varied with hyperparameters held fixed (mechanism.py)."""
+    R = L('mechanism/rank_sweep.json')
+    rows = []
+    for d in sorted(R):
+        S = R[d]; ranks = list(S['0']['ranks'])
+        g = lambda r, k: np.mean([S[s]['ranks'][r][k] for s in S])
+        lo, hi = ranks[0], ranks[-1]
+        rows.append(f"{tex(d.replace('synthetic_heteroscedastic', 'synthetic'))} & {lo}--{hi} & "
+                    f"{g(lo, 'rmse'):.4g} & {g(hi, 'rmse'):.4g} & "
+                    f"{100 * (g(lo, 'rmse') - g(hi, 'rmse')) / g(hi, 'rmse'):.0f}\\% & "
+                    f"{100 * (g(hi, 'mean_std') - g(lo, 'mean_std')) / g(hi, 'mean_std'):.0f}\\% \\\\")
+    write('ranksweep', "\n".join(rows) + "\n")
+
+
+def screen():
+    R = L('hetero_screen_seeds.json'); N = L('hetero_screen_null.json')
+    grp = lambda d, g: 'constructed' if g == 'synthetic' or d == 'synthetic_heteroscedastic' \
+        else ORIGIN.get(d, 'measured')
+    rows = [f"{grp(d, v['group'])} & {tex(d)} & {v['mean']:.2f} & {v['sd']:.2f} & "
+            f"{N[d]['null_mean']:.2f} & {N[d]['relative']:.2f} \\\\"
+            for d, v in sorted(R.items(), key=lambda kv: -N[kv[0]]['relative'])]
+    write('screen', "\n".join(rows) + "\n")
+
+
 def noise():
-    R = L('hetero_fair.json')
-    seeds = {k: v for k, v in L('hetero_screen_seeds.json').items()} \
-        if (P / 'results' / 'hetero_screen_seeds.json').exists() else {}
+    """ECE means over seeds 0-9; arrows mark Holm-adjusted Wilcoxon p<0.05 over the
+    eleven datasets, from significance.py."""
+    R = L('hetero_fair.json'); N = L('hetero_screen_null.json')
+    S = L('significance.json')['noise']['seeds0-9']
     arms = ('global', 'het_gp', 'regional')
     rows, wins = [], {m: dict.fromkeys(arms, 0) for m in ('ece', 'nll', 'crps')}
-    order = sorted(R, key=lambda d: -(seeds.get(d, {}).get('mean') or R[d]['het_ratio']))
-    for d in order:
+    for d in sorted(R, key=lambda d: -N[d]['relative']):
         c = list(R[d]['seeds'].values())
-        v = {m: {a: np.array([x[a][m] for x in c]) for a in arms} for m in wins}
+        v = {m: {a: np.mean([x[a][m] for x in c]) for a in arms} for m in wins}
         for m in wins:
-            wins[m][min(arms, key=lambda a: v[m][a].mean())] += 1
-        best = min(arms, key=lambda a: v['ece'][a].mean())
+            wins[m][min(arms, key=lambda a: v[m][a])] += 1
+        best = min(arms, key=lambda a: v['ece'][a])
         cell = []
         for a in arms:
-            s = f"{v['ece'][a].mean():.4f}"
-            if a != 'global' and pval(v['ece'][a], v['ece']['global']) < 0.05:
-                s += r'$^{\uparrow}$' if v['ece'][a].mean() < v['ece']['global'].mean() else r'$^{\downarrow}$'
+            s = f"{v['ece'][a]:.4f}"
+            if a != 'global':
+                r = S[f'ece/{a}']['datasets'][d]
+                if r['holm'] < 0.05:
+                    s += r'$^{\uparrow}$' if r['mean_diff'] < 0 else r'$^{\downarrow}$'
             cell.append(rf'\textbf{{{s}}}' if a == best else s)
-        h = seeds.get(d)
-        het = f"{h['mean']:.1f}$\\pm${h['sd']:.1f}" if h else f"{R[d]['het_ratio']:.2f}"
-        n = c[0]['n']['train']
         rows.append(f"{tex(d.replace('synthetic_heteroscedastic', 'synth_het'))} & "
-                    f"{ORIGIN.get(d, 'measured')} & {n} & {het} & " + " & ".join(cell) + r" \\")
+                    f"{ORIGIN.get(d, 'measured')} & {c[0]['n']['train']} & "
+                    f"{N[d]['relative']:.2f} & " + " & ".join(cell) + r" \\")
     rows.append(r'\midrule')
     for m, lab in (('ece', r'$\ece$'), ('nll', 'NLL'), ('crps', 'CRPS')):
         w = wins[m]; top = max(w.values())
@@ -121,19 +158,6 @@ def shrinkage():
     write('shrinkage', "\n".join(rows) + "\n")
 
 
-def screen():
-    R = L('hetero_screen_seeds.json')
-    grp = lambda d, g: 'constructed' if g == 'synthetic' or d == 'synthetic_heteroscedastic' \
-        else ORIGIN.get(d, 'measured')
-    rows = [f"{grp(d, v['group'])} & {tex(d)} & {v['mean']:.2f} & {v['sd']:.2f} & "
-            f"{v['min']:.2f}--{v['max']:.2f} \\\\"
-            for d, v in sorted(R.items(), key=lambda kv: -kv[1]['mean'])]
-    write('screen', "\n".join(rows) + "\n")
-
-
 if __name__ == '__main__':
-    orthogonality()
-    noise()
-    nsweep()
-    shrinkage()
-    screen()
+    for f in (hazard, orthogonality, ranksweep, screen, noise, nsweep, shrinkage):
+        f()

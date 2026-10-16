@@ -5,10 +5,8 @@ The reported results use seeds 0-9. This re-runs the identical protocol on seeds
 10-19 and compares per-dataset winners. A conclusion that moves when the seeds move
 is not a conclusion.
 
-Result at the time of writing: winners agree on 10 of 11 datasets. The ECE best-arm
-count is global 9 / regional 2 on seeds 0-9 and global 8 / regional 3 on seeds 10-19;
-the single flip is powerplant, whose global-vs-regional gap is small (0.0197 vs
-0.0218). The heteroscedastic GP wins zero datasets on ECE in BOTH seed sets.
+Significance on both seed sets, with multiple-comparison correction, is computed by
+significance.py from the two result files.
 """
 import sys, json, numpy as np, warnings
 from pathlib import Path

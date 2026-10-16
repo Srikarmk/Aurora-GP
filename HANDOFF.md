@@ -19,7 +19,19 @@ Three documents carry the state:
 | `paper/main.tex` | The paper. Compiles cleanly with tectonic; result tables are generated into `paper/tables/` by `src/paper_tables.py`. |
 | `data/README.md` | Dataset sources, licences, checksums and known issues |
 
-## Current status (2026-10-13)
+## Current status (2026-10-16)
+
+Second full verification: a fresh claim-by-claim fact-check, a statistical review of
+the code, citation verification against OpenAlex/Crossref/DataCite, and a full
+`reproduce.sh` run in a clean clone. Fixes: Section 3's decomposition (a GPyTorch
+prediction-cache bug in our own experiment), Holm correction and Nadeau-Bengio tests
+(`src/significance.py`), recalibration/selection/floor controls
+(`src/noise_controls.py`), a het-ratio permutation null (`src/measure_hetero_null.py`),
+per-seed orthogonality spreads, the Nystrom rank sweep as primary orthogonality
+evidence, and claims scoped to the approximations tested. See the 2026-10-16 entry at
+the top of `FINDINGS.md`.
+
+### Earlier (2026-10-13)
 
 A full pre-submission audit (data, code, results, text) found that the noise-model
 comparison used a biased noise estimator. Fixing it reversed Section 6: input-dependent

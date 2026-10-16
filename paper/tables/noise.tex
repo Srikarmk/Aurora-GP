@@ -1,18 +1,18 @@
 \begin{tabular}{llrrrrr}
 \toprule
-dataset & origin & $n_{\text{train}}$ & het & global & het-GP & regional \\
+dataset & origin & $n_{\text{train}}$ & het / null & global & het-GP & regional \\
 \midrule
-yacht & measured & 184 & 9.2$\pm$5.4 & \textbf{0.0648} & 0.1303$^{\downarrow}$ & 0.0679 \\
-energy & simulated & 460 & 6.7$\pm$1.7 & 0.0385 & \textbf{0.0336} & 0.0392 \\
-airfoil & measured & 901 & 5.5$\pm$1.2 & 0.0784 & 0.0401$^{\uparrow}$ & \textbf{0.0354$^{\uparrow}$} \\
-sarcos & measured & 1500 & 4.8$\pm$0.5 & 0.0815 & 0.0699$^{\uparrow}$ & \textbf{0.0477$^{\uparrow}$} \\
-calhousing & measured & 1500 & 4.7$\pm$0.7 & 0.0693 & 0.0450$^{\uparrow}$ & \textbf{0.0284$^{\uparrow}$} \\
-concrete & measured & 618 & 4.2$\pm$0.9 & 0.0400 & 0.0294 & \textbf{0.0267$^{\uparrow}$} \\
-synth\_het & constructed & 1500 & 4.0$\pm$0.4 & 0.0242 & \textbf{0.0152$^{\uparrow}$} & 0.0153$^{\uparrow}$ \\
-protein & measured & 1500 & 2.7$\pm$0.3 & 0.0189 & 0.0250$^{\downarrow}$ & \textbf{0.0175} \\
-robot\_arm & simulated & 1500 & 2.7$\pm$0.2 & 0.0163 & 0.0167 & \textbf{0.0156} \\
-powerplant & measured & 1500 & 2.6$\pm$0.1 & \textbf{0.0197} & 0.0204 & 0.0201 \\
-wine\_white & measured & 1500 & 2.5$\pm$0.4 & \textbf{0.0216} & 0.0223 & 0.0216 \\
+energy & simulated & 460 & 2.78 & 0.0385 & \textbf{0.0336} & 0.0392 \\
+airfoil & measured & 901 & 2.21 & 0.0784 & 0.0401$^{\uparrow}$ & \textbf{0.0354$^{\uparrow}$} \\
+yacht & measured & 184 & 2.20 & \textbf{0.0648} & 0.1303 & 0.0679 \\
+synth\_het & constructed & 1500 & 2.04 & 0.0242 & \textbf{0.0152} & 0.0153 \\
+concrete & measured & 618 & 1.83 & 0.0400 & 0.0294 & \textbf{0.0267} \\
+sarcos & measured & 1500 & 1.81 & 0.0815 & 0.0699 & \textbf{0.0477$^{\uparrow}$} \\
+calhousing & measured & 1500 & 1.75 & 0.0693 & 0.0450$^{\uparrow}$ & \textbf{0.0284$^{\uparrow}$} \\
+protein & measured & 1500 & 1.45 & 0.0189 & 0.0250 & \textbf{0.0175} \\
+robot\_arm & simulated & 1500 & 1.30 & 0.0163 & 0.0167 & \textbf{0.0156} \\
+powerplant & measured & 1500 & 1.24 & \textbf{0.0197} & 0.0204 & 0.0201 \\
+wine\_white & measured & 1500 & 1.22 & \textbf{0.0216} & 0.0223 & 0.0216 \\
 \midrule
 \multicolumn{4}{l}{\emph{best-arm count} ($\ece$)} & 3 & 2 & \textbf{6} \\
 \multicolumn{4}{l}{\emph{best-arm count} (NLL)} & 2 & \textbf{9} & 0 \\

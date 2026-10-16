@@ -52,6 +52,13 @@ MODES = {
 }
 
 
+def reset_cache(g):
+    """GPyTorch caches the predictive covariance (including LOVE's root decomposition)
+    on the first eval-mode call; a later call with different settings silently reuses
+    it. Toggling train/eval clears the cache so each mode is measured on its own."""
+    g.model.train(); g.likelihood.train(); g.model.eval(); g.likelihood.eval()
+
+
 def predict_mode(g, X_test, love, chol):
     Xs = g.scaler_X.transform(X_test)
     t = torch.tensor(Xs, dtype=torch.float32).to(g.device)
@@ -83,8 +90,10 @@ def run(X, y, n_train, seed):
         g.fit(X_tr, y_tr, n_iter=50)
 
     out = {}
+    reset_cache(g)
     _, s_exact = predict_mode(g, X_te, *MODES['exact'])
     for name, (love, chol) in MODES.items():
+        reset_cache(g)
         p, s = predict_mode(g, X_te, love, chol)
         out[name] = {
             'ece': m_ece(y_te, p, s), 'nll': m_nll(y_te, p, s), 'rmse': m_rmse(y_te, p),

@@ -44,9 +44,10 @@ def main():
     W(f"\n  Across all cells with n_train > 800 ({len(rows['exact'])} cells):")
     for m in MODES:
         W(f"    {m:14s} median rel.err in sigma = {np.median(rows[m])*100:7.2f}%")
-    W("\n  Raising max_cholesky_size alone does NOT help; turning fast_pred_var off does.")
-    W("  fast_pred_var() is a no-op below max_cholesky_size, which is why the error is")
-    W("  exactly 0.00% at every n <= 800 and only appears above it.")
+    med = {m: np.median(rows[m]) * 100 for m in MODES}
+    W(f"\n  Raising max_cholesky_size alone: {med['cholesky_on']:.2f}%. "
+      f"Turning fast_pred_var off alone: {med['love_off']:.2f}%.")
+    W("  Each mode is measured with a fresh prediction cache (inference_corruption.reset_cache).")
 
     W("\n" + "=" * 104)
     W("ONSET")
